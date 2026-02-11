@@ -1,7 +1,10 @@
 {
   "feature": "001-relay-tunnel",
   "generated": "2026-02-11T22:54:11Z",
+  "updated": "2026-02-11T23:41:04Z",
   "test_specs_hash": "5730b77961d663b6f24b2dbb21bb5ca0fc0120d5882ed92ee6e59ab416d110ce",
   "assertions_hash": "de5622fe3bc43a97aa2aee81c679108b7bacb655a362be15d88986f2bf6022f6",
-  "assertions_count": 25
+  "assertions_count": 34,
+  "tasks_hash": "34b5341b7f01def2",
+  "tasks_count": 113
 }

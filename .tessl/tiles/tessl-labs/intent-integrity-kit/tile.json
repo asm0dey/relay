@@ -1,0 +1,42 @@
+{
+  "name": "tessl-labs/intent-integrity-kit",
+  "version": "1.4.0",
+  "summary": "Closing the intent-to-code chasm - specification-driven development with cryptographic verification",
+  "private": false,
+  "docs": "index.md",
+  "skills": {
+    "iikit-core": {
+      "path": "skills/iikit-core/SKILL.md"
+    },
+    "iikit-00-constitution": {
+      "path": "skills/iikit-00-constitution/SKILL.md"
+    },
+    "iikit-01-specify": {
+      "path": "skills/iikit-01-specify/SKILL.md"
+    },
+    "iikit-02-clarify": {
+      "path": "skills/iikit-02-clarify/SKILL.md"
+    },
+    "iikit-03-plan": {
+      "path": "skills/iikit-03-plan/SKILL.md"
+    },
+    "iikit-04-checklist": {
+      "path": "skills/iikit-04-checklist/SKILL.md"
+    },
+    "iikit-05-testify": {
+      "path": "skills/iikit-05-testify/SKILL.md"
+    },
+    "iikit-06-tasks": {
+      "path": "skills/iikit-06-tasks/SKILL.md"
+    },
+    "iikit-07-analyze": {
+      "path": "skills/iikit-07-analyze/SKILL.md"
+    },
+    "iikit-08-implement": {
+      "path": "skills/iikit-08-implement/SKILL.md"
+    },
+    "iikit-09-taskstoissues": {
+      "path": "skills/iikit-09-taskstoissues/SKILL.md"
+    }
+  }
+}

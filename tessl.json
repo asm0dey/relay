@@ -1,0 +1,9 @@
+{
+  "name": "my-project",
+  "mode": "vendored",
+  "dependencies": {
+    "tessl-labs/intent-integrity-kit": {
+      "version": "1.4.0"
+    }
+  }
+}

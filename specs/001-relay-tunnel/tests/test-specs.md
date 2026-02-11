@@ -1,6 +1,8 @@
 # Test Specifications: Relay Tunnel Service
 
-**Generated**: 2026-02-11T22:54:11Z
+**Generated**: 2026-02-11T22:54:11Z  
+**Updated**: 2026-02-12T00:18:00Z  
+**Integrity Hash**: `69a23184cdc5355c`  
 **Feature**: `spec.md` | **Plan**: `plan.md`
 
 ## TDD Assessment
@@ -144,11 +146,11 @@ If requirements change, re-run /iikit-05-testify to regenerate test specs.
 **Type**: acceptance
 **Priority**: P2
 
-**Given**: Two clients attempt to register with the same secret key
+**Given**: Two clients connect with the same secret key
 **When**: The second client connects
-**Then**: The behavior is defined (either reject second connection or allow replacement)
+**Then**: Both clients receive unique subdomains and operate independently
 
-**Traceability**: FR-007, US3-scenario-3
+**Traceability**: FR-007, US3-scenario-3, Clarifications
 
 ---
 
@@ -177,6 +179,90 @@ If requirements change, re-run /iikit-05-testify to regenerate test specs.
 **Then**: Only requests with keys matching the configured validation rules are accepted
 
 **Traceability**: FR-003, FR-008, US4-scenario-2
+
+---
+
+### TS-012: WebSocket Connection Upgrade
+
+**Source**: spec.md:User Story 5:Acceptance Scenario 1
+**Type**: acceptance
+**Priority**: P2
+
+**Given**: A client has an active tunnel
+**When**: An external user opens a WebSocket connection to `wss://abc123.tun.example.com/ws`
+**Then**: The WebSocket upgrade request is forwarded to the local application and the bidirectional connection is established
+
+**Traceability**: FR-010, US5-scenario-1
+
+---
+
+### TS-013: WebSocket Message Forwarding to Local App
+
+**Source**: spec.md:User Story 5:Acceptance Scenario 2
+**Type**: acceptance
+**Priority**: P2
+
+**Given**: An active WebSocket tunnel
+**When**: The external user sends a message
+**Then**: The message is forwarded to the local application
+
+**Traceability**: FR-010, US5-scenario-2
+
+---
+
+### TS-014: WebSocket Message Forwarding to External User
+
+**Source**: spec.md:User Story 5:Acceptance Scenario 3
+**Type**: acceptance
+**Priority**: P2
+
+**Given**: An active WebSocket tunnel
+**When**: The local application sends a message
+**Then**: The message is forwarded to the external user
+
+**Traceability**: FR-010, US5-scenario-3
+
+---
+
+### TS-015: Configurable Server Shutdown - Graceful
+
+**Source**: spec.md:FR-011
+**Type**: acceptance
+**Priority**: P2
+
+**Given**: Server is running with graceful shutdown configured and active tunnels with in-flight requests
+**When**: Server receives shutdown signal
+**Then**: Server waits up to 30 seconds for in-flight requests to complete, notifies clients, then closes
+
+**Traceability**: FR-011
+
+---
+
+### TS-016: Configurable Server Shutdown - Immediate
+
+**Source**: spec.md:FR-011
+**Type**: acceptance
+**Priority**: P2
+
+**Given**: Server is running with immediate shutdown configured
+**When**: Server receives shutdown signal
+**Then**: Server closes immediately, all in-flight requests receive 503 errors
+
+**Traceability**: FR-011
+
+---
+
+### TS-017: Client Reconnection with Exponential Backoff
+
+**Source**: spec.md:FR-012
+**Type**: acceptance
+**Priority**: P2
+
+**Given**: Client is connected and configured with reconnection enabled
+**When**: Connection drops unexpectedly
+**Then**: Client waits 1 second, then retries with delay doubling each time (2s, 4s, 8s...) up to 60s cap, retrying indefinitely
+
+**Traceability**: FR-012
 
 ---
 
@@ -338,6 +424,48 @@ If requirements change, re-run /iikit-05-testify to regenerate test specs.
 
 ---
 
+### TS-206: Non-HTTP Response from Local Application
+
+**Source**: spec.md:Edge Cases
+**Type**: integration
+**Priority**: P2
+
+**Given**: An active tunnel where local application returns malformed or non-HTTP response
+**When**: A request is forwarded to the local application
+**Then**: The server returns 502 Bad Gateway to the external requester
+
+**Traceability**: Edge Case: Non-HTTP local response
+
+---
+
+### TS-207: Invalid WebSocket Message Format
+
+**Source**: spec.md:Edge Cases
+**Type**: integration
+**Priority**: P2
+
+**Given**: An active WebSocket tunnel
+**When**: A WebSocket message with invalid format or unknown message type is received
+**Then**: The connection is closed with error code 1008 (policy violation)
+
+**Traceability**: Edge Case: Invalid WebSocket message
+
+---
+
+### TS-208: Resource Limit Rejection
+
+**Source**: spec.md:Edge Cases
+**Type**: integration
+**Priority**: P3
+
+**Given**: Server has reached resource limits (memory, file descriptors)
+**When**: A new client attempts to connect
+**Then**: The connection is rejected with 503 Service Unavailable
+
+**Traceability**: Edge Case: Resource exhaustion
+
+---
+
 ## Unit Tests
 
 ### TS-301: TunnelRegistry Operations
@@ -386,18 +514,19 @@ If requirements change, re-run /iikit-05-testify to regenerate test specs.
 
 | Source | Count | Types |
 |--------|-------|-------|
-| spec.md | 11 | acceptance |
+| spec.md | 17 | acceptance |
 | plan.md (contracts) | 6 | contract |
-| plan.md (integration) | 5 | integration |
+| plan.md (integration) | 8 | integration |
 | plan.md (unit) | 3 | unit |
-| **Total** | **25** | |
+| **Total** | **34** | |
 
 ---
 
 ## Implementation Order
 
-1. **Phase 1**: Unit tests (TS-301, TS-302, TS-303) - Test core utilities first
+1. **Phase 1**: Unit tests (TS-301-303) - Test core utilities first
 2. **Phase 2**: Contract tests (TS-101-106) - Verify message protocol
-3. **Phase 3**: Core acceptance tests (TS-001-006) - MVP functionality
-4. **Phase 4**: Integration tests (TS-201-205) - End-to-end scenarios
-5. **Phase 5**: Extended acceptance tests (TS-007-011) - Additional features
+3. **Phase 3**: Core acceptance tests (TS-001-006) - MVP functionality (connection + HTTP forwarding)
+4. **Phase 4**: Integration tests (TS-201-208) - End-to-end scenarios including edge cases
+5. **Phase 5**: Extended features (TS-007-014) - Concurrent tunnels, config, WebSocket
+6. **Phase 6**: Resilience features (TS-015-017) - Shutdown, reconnection

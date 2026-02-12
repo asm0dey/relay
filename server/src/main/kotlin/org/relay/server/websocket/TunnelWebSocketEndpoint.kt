@@ -25,7 +25,8 @@ class TunnelWebSocketEndpoint @Inject constructor(
     private val tunnelRegistry: TunnelRegistry,
     private val subdomainGenerator: SubdomainGenerator,
     private val relayConfig: RelayConfig,
-    private val objectMapper: ObjectMapper
+    private val objectMapper: ObjectMapper,
+    private val externalWebSocketEndpoint: ExternalWebSocketEndpoint
 ) {
 
     private val logger = LoggerFactory.getLogger(TunnelWebSocketEndpoint::class.java)
@@ -120,7 +121,7 @@ class TunnelWebSocketEndpoint @Inject constructor(
     /**
      * Called when a message is received from the client.
      * Parses the envelope and routes RESPONSE/ERROR messages to pending requests.
-     * Handles REQUEST type messages by forwarding to local app via HTTP.
+     * Handles WebSocket frame messages for proxying.
      *
      * @param message The received message string
      * @param session The WebSocket session
@@ -137,6 +138,19 @@ class TunnelWebSocketEndpoint @Inject constructor(
                 MessageType.RESPONSE -> handleResponseMessage(envelope, subdomain)
                 MessageType.ERROR -> handleErrorMessage(envelope, subdomain)
                 else -> logger.warn("Unexpected message type from client: {}", envelope.type)
+            }
+
+            // Check if this is a WebSocket frame message (has WebSocketFramePayload structure)
+            if (envelope.type == MessageType.RESPONSE || envelope.type == MessageType.REQUEST) {
+                try {
+                    val framePayload = objectMapper.treeToValue(envelope.payload, WebSocketFramePayload::class.java)
+                    // Route WebSocket frame to external endpoint
+                    if (subdomain != null) {
+                        externalWebSocketEndpoint.handleFrameFromTunnel(subdomain, envelope.correlationId, framePayload)
+                    }
+                } catch (e: Exception) {
+                    // Not a WebSocket frame payload, ignore
+                }
             }
 
         } catch (e: Exception) {

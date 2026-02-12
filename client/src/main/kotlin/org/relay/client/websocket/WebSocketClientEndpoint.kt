@@ -24,6 +24,7 @@ class WebSocketClientEndpoint @Inject constructor(
     private val clientConfig: ClientConfig,
     private val reconnectionHandler: ReconnectionHandler,
     private val localHttpProxy: LocalHttpProxy,
+    private val localWebSocketProxy: LocalWebSocketProxy,
     private val objectMapper: ObjectMapper
 ) {
 
@@ -97,7 +98,7 @@ class WebSocketClientEndpoint @Inject constructor(
 
     /**
      * Called when the WebSocket connection is closed.
-     * Triggers reconnection if enabled.
+     * Closes all local WebSocket proxies and triggers reconnection if enabled.
      */
     @OnClose
     fun onClose(session: Session, closeReason: CloseReason) {
@@ -108,6 +109,9 @@ class WebSocketClientEndpoint @Inject constructor(
         this.connected.set(false)
         this.assignedSubdomain = null
         this.publicUrl = null
+
+        // Close all local WebSocket connections
+        localWebSocketProxy.close()
 
         // Trigger reconnection if enabled
         if (reconnectionHandler.shouldReconnect()) {
@@ -140,9 +144,19 @@ class WebSocketClientEndpoint @Inject constructor(
 
     /**
      * Handles a REQUEST message from the server by proxying to the local application
-     * and sending the response back.
+     * and sending the response back. Also handles WebSocket upgrade requests.
      */
     private fun handleRequestMessage(envelope: Envelope) {
+        // First check if this is a WebSocket frame message
+        try {
+            val framePayload = objectMapper.treeToValue(envelope.payload, WebSocketFramePayload::class.java)
+            // This is a WebSocket frame from the server (external -> local)
+            localWebSocketProxy.handleFrameFromServer(envelope.correlationId, framePayload)
+            return
+        } catch (e: Exception) {
+            // Not a WebSocket frame, proceed with HTTP request handling
+        }
+
         val requestPayload = try {
             objectMapper.treeToValue(envelope.payload, RequestPayload::class.java)
         } catch (e: Exception) {
@@ -153,6 +167,12 @@ class WebSocketClientEndpoint @Inject constructor(
 
         logger.debug("Handling request: {} {}", requestPayload.method, requestPayload.path)
 
+        // Check if this is a WebSocket upgrade request
+        if (requestPayload.webSocketUpgrade) {
+            handleWebSocketUpgradeRequest(envelope.correlationId, requestPayload)
+            return
+        }
+
         // Execute the proxy request asynchronously
         executor.submit {
             try {
@@ -162,6 +182,54 @@ class WebSocketClientEndpoint @Inject constructor(
                 logger.error("Error proxying request", e)
                 sendErrorResponse(envelope.correlationId, 502, "Bad Gateway: ${e.message}")
             }
+        }
+    }
+
+    /**
+     * Handles a WebSocket upgrade request from the server.
+     * Establishes a connection to the local WebSocket application.
+     */
+    private fun handleWebSocketUpgradeRequest(correlationId: String, requestPayload: RequestPayload) {
+        logger.info("Handling WebSocket upgrade request: correlationId={}, path={}",
+            correlationId, requestPayload.path)
+
+        val success = localWebSocketProxy.handleWebSocketUpgrade(
+            correlationId = correlationId,
+            path = requestPayload.path.removePrefix("/ws"),
+            query = requestPayload.query,
+            onMessageFromLocal = { framePayload ->
+                // Send frame back to server
+                sendWebSocketFrame(correlationId, framePayload)
+            }
+        )
+
+        if (!success) {
+            // Send error response if WebSocket upgrade failed
+            val errorPayload = ResponsePayload(
+                statusCode = 502,
+                headers = mapOf("Content-Type" to "text/plain"),
+                body = "Failed to connect to local WebSocket"
+            )
+            sendResponse(correlationId, errorPayload)
+        }
+        // On success, the WebSocket is established and messages will flow via callbacks
+    }
+
+    /**
+     * Sends a WebSocket frame message to the server.
+     */
+    private fun sendWebSocketFrame(correlationId: String, framePayload: WebSocketFramePayload) {
+        try {
+            val envelope = Envelope(
+                correlationId = correlationId,
+                type = MessageType.RESPONSE,
+                payload = objectMapper.valueToTree(framePayload)
+            )
+
+            val message = objectMapper.writeValueAsString(envelope)
+            session?.asyncRemote?.sendText(message)
+        } catch (e: Exception) {
+            logger.error("Failed to send WebSocket frame to server: correlationId={}", correlationId, e)
         }
     }
 

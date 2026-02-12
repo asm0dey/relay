@@ -19,7 +19,10 @@ data class RequestPayload(
     val headers: Map<String, String>,
 
     @JsonProperty("body")
-    val body: String? = null
+    val body: String? = null,
+
+    @JsonProperty("webSocketUpgrade")
+    val webSocketUpgrade: Boolean = false
 ) {
     companion object {
         const val METHOD_FIELD = "method"

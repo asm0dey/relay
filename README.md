@@ -1,144 +1,121 @@
-# Relay - HTTP Tunnel Service
+# 📡 Relay - Simple HTTP Tunneling Service
 
-Relay is a tunneling service that exposes local HTTP services to the internet, built with Quarkus and Kotlin.
+Relay is a lightning-fast tunneling service that exposes your local HTTP services to the internet. Built with Quarkus and Kotlin, it's designed for developers who need a reliable way to demo local work, test webhooks, or share progress without complex network configuration.
 
-## Project Structure
+[![GitHub Release](https://img.shields.io/github/v/release/asm0dey/quarkus-relay)](https://github.com/asm0dey/quarkus-relay/releases)
+[![Docker Image](https://img.shields.io/badge/docker-ghcr.io-blue)](https://github.com/asm0dey/quarkus-relay/pkgs/container/quarkus-relay%2Fserver)
 
-- **`client/`** - Tunnel client CLI (exposes local services)
-- **`server/`** - Tunnel server (manages connections)
-- **`shared/`** - Shared protocol definitions
+## 🚀 Quick Start
 
-**Technology Stack**: Quarkus 3.31.3, Kotlin 2.3.0, WebSockets, Picocli
+### 1. Get the Client
+Download the latest pre-compiled binary for your platform from the [Releases Page](https://github.com/asm0dey/quarkus-relay/releases).
 
-## Quick Start
+Alternatively, if you have Java installed, you can use the JAR file or run via Docker.
 
-### 1. Build the Project
+### 2. Expose Your Local Service
+Expose a local web server running on port `3000` using our public server (if available) or your own:
 
+```bash
+# Basic usage with a random subdomain
+./relay-client 3000 --server tun.example.com --key your-secret-key
+```
+
+**Output:**
+```text
+✅ Tunnel established!
+🌍 Public URL: https://abc123xyz.tun.example.com
+🔗 Forwarding: localhost:3000
+```
+
+---
+
+## 💻 Client CLI Usage
+
+### Common Patterns
+
+**Request a specific subdomain:**
+```bash
+relay-client 8080 -s tun.example.com -k my-key -d my-awesome-app
+# → https://my-awesome-app.tun.example.com
+```
+
+**Quiet mode (useful for scripts):**
+```bash
+relay-client 3000 -s tun.example.com -k my-key --quiet
+```
+
+**Full options:**
+```text
+Usage: relay-client [OPTIONS] <port>
+
+Arguments:
+  <port>                 Local HTTP service port (1-65535)
+
+Options:
+  -s, --server=<host>    Tunnel server hostname
+  -p, --server-port=<p>  Tunnel server port (default: 443)
+  -k, --key=<secret>     Authentication secret key
+  -d, --subdomain=<name> Request a specific subdomain
+      --insecure         Use ws:// instead of wss://
+  -v, --verbose          Enable debug logging
+  -q, --quiet            Only show the tunnel URL
+  -h, --help             Show this help message
+```
+
+### Configuration
+You can avoid typing flags every time by creating a config file at `~/.relay/config.properties`:
+```properties
+relay.client.server-url=wss://tun.example.com/ws
+relay.client.secret-key=your-secret-key
+```
+Then just run: `relay-client 3000`
+
+---
+
+## 🛠️ Server Deployment
+
+The server is available as a multi-arch Docker image.
+
+### Run with Docker
+```bash
+docker run -d \
+  --name relay-server \
+  -p 8080:8080 \
+  -e RELAY_DOMAIN=tun.example.com \
+  -e RELAY_SECRET_KEYS=key1,key2 \
+  ghcr.io/asm0dey/quarkus-relay/server:latest
+```
+
+### Configuration Variables
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `RELAY_DOMAIN` | Base domain for tunnels | `tun.example.com` |
+| `RELAY_SECRET_KEYS` | Comma-separated allowed keys | (required) |
+| `PORT` | Server HTTP port | `8080` |
+
+---
+
+## 🏗️ Development
+
+### Prerequisites
+* JDK 17+
+* Docker (optional, for native builds)
+
+### Build from source
 ```bash
 ./gradlew build
 ```
 
-### 2. Start the Server
-
-```bash
-java -jar server/build/quarkus-app/quarkus-run.jar
-```
-
-### 3. Run the Client
-
-Expose a local HTTP service running on port 3000:
-
-```bash
-java -jar client/build/quarkus-app/quarkus-run.jar 3000 -s tun.example.com -k your-secret-key
-```
-
-Output:
-```
-Tunnel ready: https://abc123.tun.example.com -> localhost:3000
-```
-
-## Client CLI Usage
-
-### Basic Commands
-
-**Minimal (random subdomain)**:
-```bash
-client 3000 -s tun.example.com -k secret-key
-```
-
-**Custom subdomain**:
-```bash
-client 3000 -s tun.example.com -d myapp -k secret-key
-# → https://myapp.tun.example.com
-```
-
-**Insecure mode (local testing)**:
-```bash
-client 3000 -s localhost:8080 -k test-key --insecure
-```
-
-### All Options
-
-```
-Usage: client [OPTIONS] <port>
-
-Positional:
-  <port>                 Local HTTP service port (1-65535)
-
-Required:
-  -s, --server=<host>    Tunnel server hostname
-  -k, --key=<secret>     Authentication secret key
-
-Optional:
-  -d, --subdomain=<name> Request specific subdomain
-      --insecure         Use ws:// instead of wss://
-  -q, --quiet            Suppress non-error output
-  -v, --verbose          Enable debug logging
-  -h, --help             Show help and exit
-```
-
-### Exit Codes
-
-| Code | Meaning | Cause |
-|------|---------|-------|
-| 0 | Success | Tunnel established or help displayed |
-| 1 | Invalid arguments | Missing flags, invalid port/subdomain |
-| 2 | Connection failed | Server unreachable, network error |
-| 3 | Authentication failed | Invalid secret key |
-| 130 | Interrupted | User pressed Ctrl+C |
-
-### Configuration File
-
-Create `~/.relay/config.properties`:
-```properties
-relay.client.server-url=wss://tun.example.com/ws
-relay.client.secret-key=my-default-key
-```
-
-Then use short form:
-```bash
-client 3000
-```
-
-**Config precedence**: CLI args > environment variables > properties file > defaults
-
-## Development
-
 ### Run in Dev Mode
-
 ```bash
-./gradlew :client:quarkusDev
-# or
-./gradlew :server:quarkusDev
+./gradlew :server:quarkusDev  # Start server
+./gradlew :client:quarkusDev  # Start client
 ```
 
-### Run Tests
+## 📖 Documentation
+* [Feature Specifications](specs/)
+* [Architecture Overview](README.md#architecture)
+* [Protocol Details](specs/001-relay-tunnel/contracts/websocket-protocol.md)
 
-```bash
-./gradlew test
-```
-
-### Build Native Executable
-
-```bash
-./gradlew build -Dquarkus.native.enabled=true
-```
-
-## Architecture
-
-**Client** → WebSocket connection → **Server** → HTTP forwarding → **Internet**
-
-- Client opens persistent WebSocket to server
-- Server assigns subdomain and registers tunnel
-- Incoming HTTP requests are forwarded through WebSocket to client
-- Client proxies to local HTTP service
-
-## Documentation
-
-- [Feature Specifications](specs/) - Detailed feature specs
-- [Client Quickstart](specs/002-tunnel-client-cli/quickstart.md) - CLI usage guide
-- [Project Constitution](CONSTITUTION.md) - Development principles
-
-## Contributing
-
-See [CONSTITUTION.md](CONSTITUTION.md) for development guidelines and principles.
+## 🛡️ License
+This project is licensed under the MIT License - see the LICENSE file for details (if applicable).

@@ -48,15 +48,15 @@ class AuthenticationIntegrationTest {
 
     @Test
     fun `TS-001 Valid secret key connection receives subdomain`() {
-        val (session, client) = connectWebSocket(VALID_KEY)
-        
+        val (_, client) = connectWebSocket(VALID_KEY)
+
         awaitMessage(client)
         
         val envelope = parseEnvelope(client.messages.first())
         assertNotNull(envelope)
         assertEquals(MessageType.CONTROL, envelope!!.type)
         
-        val payload = envelope.payload as com.fasterxml.jackson.databind.JsonNode
+        val payload = envelope.payload
         assertEquals("REGISTERED", payload.get("action").asText())
         val subdomain = payload.get("subdomain").asText()
         assertTrue(subdomain.isNotBlank())
@@ -68,7 +68,7 @@ class AuthenticationIntegrationTest {
 
     @Test
     fun `TS-002 Invalid secret key rejected with connection close`() {
-        val (session, client) = connectWebSocket(INVALID_KEY)
+        val (_, client) = connectWebSocket(INVALID_KEY)
         
         await().atMost(Duration.ofSeconds(5))
             .until { client.closed }
@@ -82,7 +82,7 @@ class AuthenticationIntegrationTest {
         val subdomains = mutableSetOf<String>()
         
         repeat(3) {
-            val (session, client) = connectWebSocket(VALID_KEY)
+            val (_, client) = connectWebSocket(VALID_KEY)
             awaitMessage(client)
             
             val subdomain = extractSubdomain(client.messages.first())
@@ -113,7 +113,7 @@ class AuthenticationIntegrationTest {
     private fun parseEnvelope(json: String): Envelope? {
         return try {
             mapper.readValue(json, Envelope::class.java)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             null
         }
     }
@@ -121,8 +121,7 @@ class AuthenticationIntegrationTest {
     private fun extractSubdomain(json: String): String? {
         val envelope = parseEnvelope(json) ?: return null
         if (envelope.type != MessageType.CONTROL) return null
-        val payload = envelope.payload as? com.fasterxml.jackson.databind.JsonNode
-        return payload?.get("subdomain")?.asText()
+        return envelope.payload.get("subdomain")?.asText()
     }
 
     @ClientEndpoint

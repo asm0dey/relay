@@ -6,7 +6,7 @@ import com.fasterxml.jackson.annotation.JsonProperty
  * Enumeration of error codes used in ErrorPayload.
  */
 enum class ErrorCode(
-    @JsonProperty("code")
+    @param:JsonProperty("code")
     val code: String
 ) {
     TIMEOUT("TIMEOUT"),

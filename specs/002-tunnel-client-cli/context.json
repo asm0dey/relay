@@ -1,0 +1,7 @@
+{
+  "testify": {
+    "assertion_hash": "80f9af908e37a9a384445478a6510f3eea4261a5070c7df68e5125bd8321ef86",
+    "generated_at": "2026-02-13T10:01:05Z",
+    "test_specs_file": "/home/finkel/work_self/relay/specs/002-tunnel-client-cli/tests/test-specs.md"
+  }
+}

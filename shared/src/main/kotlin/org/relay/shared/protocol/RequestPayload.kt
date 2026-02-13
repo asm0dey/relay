@@ -6,22 +6,22 @@ import com.fasterxml.jackson.annotation.JsonProperty
  * Payload for REQUEST messages containing HTTP request data.
  */
 data class RequestPayload(
-    @JsonProperty("method")
+    @param:JsonProperty("method")
     val method: String,
 
-    @JsonProperty("path")
+    @param:JsonProperty("path")
     val path: String,
 
-    @JsonProperty("query")
+    @param:JsonProperty("query")
     val query: Map<String, String>? = null,
 
-    @JsonProperty("headers")
+    @param:JsonProperty("headers")
     val headers: Map<String, String>,
 
-    @JsonProperty("body")
+    @param:JsonProperty("body")
     val body: String? = null,
 
-    @JsonProperty("webSocketUpgrade")
+    @param:JsonProperty("webSocketUpgrade")
     val webSocketUpgrade: Boolean = false
 ) {
     companion object {

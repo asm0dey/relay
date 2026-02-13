@@ -6,10 +6,10 @@ import com.fasterxml.jackson.annotation.JsonProperty
  * Payload for ERROR messages containing error details.
  */
 data class ErrorPayload(
-    @JsonProperty("code")
+    @param:JsonProperty("code")
     val code: ErrorCode,
 
-    @JsonProperty("message")
+    @param:JsonProperty("message")
     val message: String
 ) {
     companion object {

@@ -1,0 +1,7 @@
+{
+  "name": "tessl/maven-info-picocli--picocli",
+  "version": "4.7.0",
+  "docs": "docs/index.md",
+  "describes": "pkg:maven/info.picocli/picocli@4.7.7",
+  "summary": "Java command line parser with both an annotations API and a programmatic API."
+}

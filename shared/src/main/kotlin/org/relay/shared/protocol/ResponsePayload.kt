@@ -6,13 +6,13 @@ import com.fasterxml.jackson.annotation.JsonProperty
  * Payload for RESPONSE messages containing HTTP response data.
  */
 data class ResponsePayload(
-    @field:JsonProperty("statusCode")
+    @param:JsonProperty("statusCode")
     val statusCode: Int,
 
-    @field:JsonProperty("headers")
+    @param:JsonProperty("headers")
     val headers: Map<String, String>,
 
-    @field:JsonProperty("body")
+    @param:JsonProperty("body")
     val body: String? = null
 ) {
     companion object {

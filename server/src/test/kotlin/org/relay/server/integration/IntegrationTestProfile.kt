@@ -10,6 +10,7 @@ class IntegrationTestProfile : QuarkusTestProfile {
         "relay.max-body-size" to "1048576",
         "quarkus.http.port" to "8081",
         "quarkus.http.test-port" to "8081",
-        "quarkus.log.level" to "WARN"
+        "quarkus.log.level" to "INFO",
+        "quarkus.log.category.\"org.relay.server.websocket\".level" to "DEBUG"
     )
 }

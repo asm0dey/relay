@@ -7,19 +7,19 @@ import com.fasterxml.jackson.annotation.JsonProperty
  * Used for proxying WebSocket messages between external client and local application.
  */
 data class WebSocketFramePayload(
-    @JsonProperty("type")
+    @param:JsonProperty("type")
     val type: String,  // TEXT, BINARY, CLOSE, PING, PONG
 
-    @JsonProperty("data")
+    @param:JsonProperty("data")
     val data: String? = null,  // Base64 encoded for BINARY, plain text for TEXT
 
-    @JsonProperty("isBinary")
+    @param:JsonProperty("isBinary")
     val isBinary: Boolean = false,
 
-    @JsonProperty("closeCode")
+    @param:JsonProperty("closeCode")
     val closeCode: Int? = null,
 
-    @JsonProperty("closeReason")
+    @param:JsonProperty("closeReason")
     val closeReason: String? = null
 ) {
     companion object {

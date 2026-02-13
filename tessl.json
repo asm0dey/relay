@@ -4,6 +4,9 @@
   "dependencies": {
     "tessl-labs/intent-integrity-kit": {
       "version": "1.4.0"
+    },
+    "tessl/maven-info-picocli--picocli": {
+      "version": "4.7.0"
     }
   }
 }

@@ -249,9 +249,14 @@ class WebSocketClientEndpoint @Inject constructor(
                 // Server confirmed registration with assigned subdomain
                 this.assignedSubdomain = controlPayload.subdomain
                 this.publicUrl = controlPayload.publicUrl
-                
+
                 logger.info("Successfully registered with subdomain: {}", controlPayload.subdomain)
                 logger.info("Public URL: {}", controlPayload.publicUrl)
+
+                // T021: Display user-friendly connection success message (TS-007)
+                // Format: "Tunnel ready: {publicUrl} -> localhost:{port}"
+                val localPort = extractPortFromUrl(clientConfig.localUrl())
+                logger.info("Tunnel ready: {} -> localhost:{}", controlPayload.publicUrl, localPort)
             }
             ControlPayload.ACTION_HEARTBEAT -> {
                 logger.debug("Received heartbeat from server")
@@ -262,6 +267,19 @@ class WebSocketClientEndpoint @Inject constructor(
             else -> {
                 logger.warn("Unknown control action: {}", controlPayload.action)
             }
+        }
+    }
+
+    /**
+     * Extracts the port number from a URL string.
+     * Examples: "http://localhost:3000" -> 3000, "http://localhost:8080" -> 8080
+     */
+    private fun extractPortFromUrl(url: String): Int {
+        return try {
+            url.substringAfterLast(":").toInt()
+        } catch (e: Exception) {
+            logger.warn("Failed to extract port from URL: {}, defaulting to 80", url)
+            80
         }
     }
 

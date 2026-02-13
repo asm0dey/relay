@@ -1,66 +1,144 @@
-# code-with-quarkus
+# Relay - HTTP Tunnel Service
 
-This project uses Quarkus, the Supersonic Subatomic Java Framework.
+Relay is a tunneling service that exposes local HTTP services to the internet, built with Quarkus and Kotlin.
 
-If you want to learn more about Quarkus, please visit its website: <https://quarkus.io/>.
+## Project Structure
 
-## Running the application in dev mode
+- **`client/`** - Tunnel client CLI (exposes local services)
+- **`server/`** - Tunnel server (manages connections)
+- **`shared/`** - Shared protocol definitions
 
-You can run your application in dev mode that enables live coding using:
+**Technology Stack**: Quarkus 3.31.3, Kotlin 2.3.0, WebSockets, Picocli
 
-```shell script
-./gradlew quarkusDev
-```
+## Quick Start
 
-> **_NOTE:_**  Quarkus now ships with a Dev UI, which is available in dev mode only at <http://localhost:8080/q/dev/>.
+### 1. Build the Project
 
-## Packaging and running the application
-
-The application can be packaged using:
-
-```shell script
+```bash
 ./gradlew build
 ```
 
-It produces the `quarkus-run.jar` file in the `build/quarkus-app/` directory.
-Be aware that it’s not an _über-jar_ as the dependencies are copied into the `build/quarkus-app/lib/` directory.
+### 2. Start the Server
 
-The application is now runnable using `java -jar build/quarkus-app/quarkus-run.jar`.
-
-If you want to build an _über-jar_, execute the following command:
-
-```shell script
-./gradlew build -Dquarkus.package.jar.type=uber-jar
+```bash
+java -jar server/build/quarkus-app/quarkus-run.jar
 ```
 
-The application, packaged as an _über-jar_, is now runnable using `java -jar build/*-runner.jar`.
+### 3. Run the Client
 
-## Creating a native executable
+Expose a local HTTP service running on port 3000:
 
-You can create a native executable using:
+```bash
+java -jar client/build/quarkus-app/quarkus-run.jar 3000 -s tun.example.com -k your-secret-key
+```
 
-```shell script
+Output:
+```
+Tunnel ready: https://abc123.tun.example.com -> localhost:3000
+```
+
+## Client CLI Usage
+
+### Basic Commands
+
+**Minimal (random subdomain)**:
+```bash
+client 3000 -s tun.example.com -k secret-key
+```
+
+**Custom subdomain**:
+```bash
+client 3000 -s tun.example.com -d myapp -k secret-key
+# → https://myapp.tun.example.com
+```
+
+**Insecure mode (local testing)**:
+```bash
+client 3000 -s localhost:8080 -k test-key --insecure
+```
+
+### All Options
+
+```
+Usage: client [OPTIONS] <port>
+
+Positional:
+  <port>                 Local HTTP service port (1-65535)
+
+Required:
+  -s, --server=<host>    Tunnel server hostname
+  -k, --key=<secret>     Authentication secret key
+
+Optional:
+  -d, --subdomain=<name> Request specific subdomain
+      --insecure         Use ws:// instead of wss://
+  -q, --quiet            Suppress non-error output
+  -v, --verbose          Enable debug logging
+  -h, --help             Show help and exit
+```
+
+### Exit Codes
+
+| Code | Meaning | Cause |
+|------|---------|-------|
+| 0 | Success | Tunnel established or help displayed |
+| 1 | Invalid arguments | Missing flags, invalid port/subdomain |
+| 2 | Connection failed | Server unreachable, network error |
+| 3 | Authentication failed | Invalid secret key |
+| 130 | Interrupted | User pressed Ctrl+C |
+
+### Configuration File
+
+Create `~/.relay/config.properties`:
+```properties
+relay.client.server-url=wss://tun.example.com/ws
+relay.client.secret-key=my-default-key
+```
+
+Then use short form:
+```bash
+client 3000
+```
+
+**Config precedence**: CLI args > environment variables > properties file > defaults
+
+## Development
+
+### Run in Dev Mode
+
+```bash
+./gradlew :client:quarkusDev
+# or
+./gradlew :server:quarkusDev
+```
+
+### Run Tests
+
+```bash
+./gradlew test
+```
+
+### Build Native Executable
+
+```bash
 ./gradlew build -Dquarkus.native.enabled=true
 ```
 
-Or, if you don't have GraalVM installed, you can run the native executable build in a container using:
+## Architecture
 
-```shell script
-./gradlew build -Dquarkus.native.enabled=true -Dquarkus.native.container-build=true
-```
+**Client** → WebSocket connection → **Server** → HTTP forwarding → **Internet**
 
-You can then execute your native executable with: `./build/code-with-quarkus-1.0.0-SNAPSHOT-runner`
+- Client opens persistent WebSocket to server
+- Server assigns subdomain and registers tunnel
+- Incoming HTTP requests are forwarded through WebSocket to client
+- Client proxies to local HTTP service
 
-If you want to learn more about building native executables, please consult <https://quarkus.io/guides/gradle-tooling>.
+## Documentation
 
-## Related Guides
+- [Feature Specifications](specs/) - Detailed feature specs
+- [Client Quickstart](specs/002-tunnel-client-cli/quickstart.md) - CLI usage guide
+- [Project Constitution](CONSTITUTION.md) - Development principles
 
-- Kotlin ([guide](https://quarkus.io/guides/kotlin)): Write your services in Kotlin
+## Contributing
 
-## Provided Code
-
-### REST
-
-Easily start your REST Web Services
-
-[Related guide section...](https://quarkus.io/guides/getting-started-reactive#reactive-jax-rs-resources)
+See [CONSTITUTION.md](CONSTITUTION.md) for development guidelines and principles.

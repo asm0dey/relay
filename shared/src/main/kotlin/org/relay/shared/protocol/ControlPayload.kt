@@ -6,13 +6,13 @@ import com.fasterxml.jackson.annotation.JsonProperty
  * Payload for CONTROL messages for administrative and configuration actions.
  */
 data class ControlPayload(
-    @JsonProperty("action")
+    @param:JsonProperty("action")
     val action: String,
 
-    @JsonProperty("subdomain")
+    @param:JsonProperty("subdomain")
     val subdomain: String? = null,
 
-    @JsonProperty("publicUrl")
+    @param:JsonProperty("publicUrl")
     val publicUrl: String? = null
 ) {
     companion object {

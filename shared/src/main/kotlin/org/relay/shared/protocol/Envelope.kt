@@ -8,16 +8,16 @@ import java.time.Instant
  * Envelope for all protocol messages. Contains metadata and the payload.
  */
 data class Envelope(
-    @JsonProperty("correlationId")
+    @param:JsonProperty("correlationId")
     val correlationId: String,
 
-    @JsonProperty("type")
+    @param:JsonProperty("type")
     val type: MessageType,
 
-    @JsonProperty("timestamp")
+    @param:JsonProperty("timestamp")
     val timestamp: Instant = Instant.now(),
 
-    @JsonProperty("payload")
+    @param:JsonProperty("payload")
     val payload: JsonNode
 ) {
     companion object {

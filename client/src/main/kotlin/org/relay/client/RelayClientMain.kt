@@ -242,19 +242,9 @@ class RelayClientMain @Inject constructor(
         return try {
             logger.info("Connecting to ${params.serverUrl}...")
 
-            // Append secret key as query parameter for authentication during handshake
-            val baseUri = URI(params.serverUrl)
-            val authUri = URI(
-                baseUri.scheme,
-                baseUri.authority,
-                baseUri.path,
-                "secret=${params.secretKey}",
-                baseUri.fragment
-            )
-
+            // Connect using the URL constructed in ConnectionParameters which includes secret and subdomain
             val container = jakarta.websocket.ContainerProvider.getWebSocketContainer()
-
-            container.connectToServer(clientEndpoint, authUri)
+            container.connectToServer(clientEndpoint, URI(params.serverUrl))
 
             // Wait for connection to be established (up to 10 seconds)
             var attempts = 0

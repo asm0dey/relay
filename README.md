@@ -20,13 +20,6 @@ Expose a local web server running on port `3000` using our public server (if ava
 ./relay-client 3000 --server tun.example.com --key your-secret-key
 ```
 
-**Output:**
-```text
-✅ Tunnel established!
-🌍 Public URL: https://abc123xyz.tun.example.com
-🔗 Forwarding: localhost:3000
-```
-
 ---
 
 ## 💻 Client CLI Usage

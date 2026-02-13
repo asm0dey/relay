@@ -33,6 +33,8 @@ class TunnelWebSocketEndpoint @Inject constructor(
     companion object {
         private const val SECRET_KEY_PARAM = "secret"
         private const val SECRET_KEY_HEADER = "X-Secret-Key"
+        private const val SUBDOMAIN_PARAM = "subdomain"
+        private const val SUBDOMAIN_HEADER = "X-Subdomain"
         private const val SERVICE_UNAVAILABLE = 503
         private const val SERVICE_UNAVAILABLE_MESSAGE = "Service Unavailable: Tunnel disconnected"
     }
@@ -52,6 +54,13 @@ class TunnelWebSocketEndpoint @Inject constructor(
             if (!headers.isNullOrEmpty()) {
                 sec.userProperties[SECRET_KEY_HEADER] = headers.first()
             }
+
+            // Extract requested subdomain from header
+            val subdomainHeaders = request.headers[SUBDOMAIN_HEADER]
+            if (!subdomainHeaders.isNullOrEmpty()) {
+                sec.userProperties[SUBDOMAIN_HEADER] = subdomainHeaders.first()
+            }
+
             super.modifyHandshake(sec, request, response)
         }
     }
@@ -79,13 +88,23 @@ class TunnelWebSocketEndpoint @Inject constructor(
                 return
             }
 
-            // Generate unique subdomain
-            val subdomain = try {
-                subdomainGenerator.generateUnique(tunnelRegistry)
-            } catch (e: IllegalStateException) {
-                logger.error("Failed to generate unique subdomain", e)
-                session.close(CloseReason(CloseReason.CloseCodes.TRY_AGAIN_LATER, "Unable to generate subdomain"))
-                return
+            // Generate or use requested subdomain
+            val requestedSubdomain = extractRequestedSubdomain(session, config)
+            val subdomain = if (requestedSubdomain != null) {
+                if (tunnelRegistry.hasTunnel(requestedSubdomain)) {
+                    logger.warn("Requested subdomain already in use: {}", requestedSubdomain)
+                    session.close(CloseReason(CloseReason.CloseCodes.VIOLATED_POLICY, "Subdomain already in use"))
+                    return
+                }
+                requestedSubdomain
+            } else {
+                try {
+                    subdomainGenerator.generateUnique(tunnelRegistry)
+                } catch (e: IllegalStateException) {
+                    logger.error("Failed to generate unique subdomain", e)
+                    session.close(CloseReason(CloseReason.CloseCodes.TRY_AGAIN_LATER, "Unable to generate subdomain"))
+                    return
+                }
             }
 
             // Create and register tunnel connection
@@ -239,6 +258,30 @@ class TunnelWebSocketEndpoint @Inject constructor(
         val secretFromHeader = userProperties[SECRET_KEY_HEADER] as? String
         if (!secretFromHeader.isNullOrEmpty()) {
             return secretFromHeader
+        }
+
+        return null
+    }
+
+    /**
+     * Extracts the requested subdomain from query parameter or header.
+     */
+    private fun extractRequestedSubdomain(session: Session, config: EndpointConfig): String? {
+        // Try query parameter first
+        val queryString = session.queryString
+        if (!queryString.isNullOrEmpty()) {
+            val params = parseQueryString(queryString)
+            val subdomainFromQuery = params[SUBDOMAIN_PARAM]
+            if (!subdomainFromQuery.isNullOrEmpty()) {
+                return subdomainFromQuery
+            }
+        }
+
+        // Try header
+        val userProperties = config.userProperties
+        val subdomainFromHeader = userProperties[SUBDOMAIN_HEADER] as? String
+        if (!subdomainFromHeader.isNullOrEmpty()) {
+            return subdomainFromHeader
         }
 
         return null

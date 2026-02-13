@@ -47,7 +47,13 @@ data class ConnectionParameters(
 
             // Only include port in URL if it's not the default for the protocol
             val portSuffix = if (effectivePort == defaultPort) "" else ":$effectivePort"
-            return "$protocol://$cleanHostname$portSuffix/ws"
+            
+            val queryParams = mutableListOf<String>()
+            queryParams.add("secret=$secretKey")
+            subdomain?.let { queryParams.add("subdomain=$it") }
+            
+            val queryString = queryParams.joinToString("&", prefix = "?")
+            return "$protocol://$cleanHostname$portSuffix/ws$queryString"
         }
 
     /**

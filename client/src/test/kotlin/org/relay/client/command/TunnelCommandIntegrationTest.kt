@@ -24,7 +24,7 @@ class TunnelCommandIntegrationTest {
         assertEquals("tun.example.com", params.server)
         assertEquals("my-secret", params.secretKey)
         assertEquals("http://localhost:3000", params.localUrl)
-        assertEquals("wss://tun.example.com/ws", params.serverUrl)
+        assertEquals("wss://tun.example.com/ws?secret=my-secret", params.serverUrl)
         assertNull(params.subdomain) // Should be null for random assignment
     }
 
@@ -58,7 +58,7 @@ class TunnelCommandIntegrationTest {
         
         val params = ConnectionParameters.fromCommand(command)
         
-        assertEquals("ws://localhost:8080/ws", params.serverUrl)
+        assertEquals("ws://localhost:8080/ws?secret=secret", params.serverUrl)
     }
 
     @Test

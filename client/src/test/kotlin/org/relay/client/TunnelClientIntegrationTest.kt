@@ -54,12 +54,12 @@ class TunnelClientIntegrationTest {
         assertEquals("my-secret", params.secretKey, "Secret key should be my-secret")
         assertNull(params.subdomain, "Subdomain should be null for random assignment")
         assertEquals("http://localhost:3000", params.localUrl, "Local URL should be http://localhost:3000")
-        assertEquals("wss://tun.example.com/ws", params.serverUrl, "Server URL should use wss://")
+        assertEquals("wss://tun.example.com/ws?secret=my-secret", params.serverUrl, "Server URL should use wss://")
         assertFalse(params.insecure, "Should use secure connection by default")
         assertEquals(LogLevel.INFO, params.logLevel, "Default log level should be INFO")
 
         // Verify system properties were set for ClientConfig integration
-        assertEquals("wss://tun.example.com/ws", System.getProperty("relay.client.server-url"))
+        assertEquals("wss://tun.example.com/ws?secret=my-secret", System.getProperty("relay.client.server-url"))
         assertEquals("http://localhost:3000", System.getProperty("relay.client.local-url"))
         assertEquals("my-secret", System.getProperty("relay.client.secret-key"))
         assertNull(System.getProperty("relay.client.subdomain"), "Subdomain property should not be set")
@@ -82,7 +82,7 @@ class TunnelClientIntegrationTest {
         assertEquals("secret", params.secretKey, "Secret key should be secret")
         assertEquals("myapp", params.subdomain, "Subdomain should be myapp")
         assertEquals("http://localhost:8080", params.localUrl, "Local URL should be http://localhost:8080")
-        assertEquals("wss://tun.example.com/ws", params.serverUrl, "Server URL should use wss://")
+        assertEquals("wss://tun.example.com/ws?secret=secret&subdomain=myapp", params.serverUrl, "Server URL should use wss://")
 
         // Verify system properties include subdomain
         assertEquals("myapp", System.getProperty("relay.client.subdomain"))
@@ -123,7 +123,7 @@ class TunnelClientIntegrationTest {
         val params = command.getParameters()
 
         assertTrue(params.insecure, "Insecure flag should be true")
-        assertEquals("ws://localhost:8080/ws", params.serverUrl, "Server URL should use ws:// when insecure")
+        assertEquals("ws://localhost:8080/ws?secret=secret", params.serverUrl, "Server URL should use ws:// when insecure")
     }
 
     @Test

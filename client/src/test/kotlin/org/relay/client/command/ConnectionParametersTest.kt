@@ -32,7 +32,7 @@ class ConnectionParametersTest {
             server = "tun.example.com",
             secretKey = "secret"
         )
-        assertEquals("wss://tun.example.com/ws", params.serverUrl)
+        assertEquals("wss://tun.example.com/ws?secret=secret", params.serverUrl)
     }
 
     @Test
@@ -42,7 +42,7 @@ class ConnectionParametersTest {
             server = "localhost:8080",
             secretKey = "secret"
         )
-        assertEquals("wss://localhost:8080/ws", params.serverUrl)
+        assertEquals("wss://localhost:8080/ws?secret=secret", params.serverUrl)
     }
 
     @Test
@@ -53,7 +53,7 @@ class ConnectionParametersTest {
             secretKey = "secret",
             insecure = true
         )
-        assertEquals("ws://localhost:8080/ws", params.serverUrl)
+        assertEquals("ws://localhost:8080/ws?secret=secret", params.serverUrl)
     }
 
     @Test
@@ -145,7 +145,7 @@ class ConnectionParametersTest {
         val params = ConnectionParameters.fromCommand(command)
         
         assertEquals("http://localhost:8080", params.localUrl)
-        assertEquals("ws://tun.example.com/ws", params.serverUrl)
+        assertEquals("ws://tun.example.com/ws?secret=secret&subdomain=myapp", params.serverUrl)
         assertEquals("secret", params.secretKey)
         assertEquals("myapp", params.subdomain)
         assertEquals(LogLevel.DEBUG, params.logLevel)
@@ -162,7 +162,7 @@ class ConnectionParametersTest {
         val params = ConnectionParameters.fromCommand(command)
 
         assertEquals("http://localhost:3000", params.localUrl)
-        assertEquals("wss://tun.example.com/ws", params.serverUrl)
+        assertEquals("wss://tun.example.com/ws?secret=secret", params.serverUrl)
         assertNull(params.subdomain)
         assertEquals(LogLevel.INFO, params.logLevel)
     }
@@ -196,8 +196,8 @@ class ConnectionParametersTest {
         // When constructing the server URL
         val serverUrl = params.serverUrl
 
-        // Then it should be wss://tun.example.com/ws
-        assertEquals("wss://tun.example.com/ws", serverUrl)
+        // Then it should be wss://tun.example.com/ws?secret=secret123
+        assertEquals("wss://tun.example.com/ws?secret=secret123", serverUrl)
     }
 
     @Test
@@ -213,8 +213,8 @@ class ConnectionParametersTest {
         // When constructing the server URL
         val serverUrl = params.serverUrl
 
-        // Then it should be ws://tun.example.com/ws
-        assertEquals("ws://tun.example.com/ws", serverUrl)
+        // Then it should be ws://tun.example.com/ws?secret=secret123
+        assertEquals("ws://tun.example.com/ws?secret=secret123", serverUrl)
     }
 
     @Test
@@ -285,8 +285,8 @@ class ConnectionParametersTest {
         // When constructing the server URL
         val serverUrl = params.serverUrl
 
-        // Then it should strip the prefix and add wss://
-        assertEquals("wss://tun.example.com/ws", serverUrl)
+        // Then it should strip the prefix and add wss:// with secret
+        assertEquals("wss://tun.example.com/ws?secret=secret", serverUrl)
     }
 
     @Test
@@ -302,8 +302,8 @@ class ConnectionParametersTest {
         // When constructing the server URL
         val serverUrl = params.serverUrl
 
-        // Then it should strip the prefix and add ws://
-        assertEquals("ws://tun.example.com/ws", serverUrl)
+        // Then it should strip the prefix and add ws:// with secret
+        assertEquals("ws://tun.example.com/ws?secret=secret", serverUrl)
     }
 
     @Test
@@ -319,8 +319,8 @@ class ConnectionParametersTest {
         // When constructing the server URL
         val serverUrl = params.serverUrl
 
-        // Then it should strip the prefix and add wss://
-        assertEquals("wss://tun.example.com/ws", serverUrl)
+        // Then it should strip the prefix and add wss:// with secret
+        assertEquals("wss://tun.example.com/ws?secret=secret", serverUrl)
     }
 
     @Test
@@ -336,8 +336,8 @@ class ConnectionParametersTest {
         // When constructing the server URL
         val serverUrl = params.serverUrl
 
-        // Then it should strip the prefix and add wss://
-        assertEquals("wss://tun.example.com/ws", serverUrl)
+        // Then it should strip the prefix and add wss:// with secret
+        assertEquals("wss://tun.example.com/ws?secret=secret", serverUrl)
     }
 
     private fun createTestCommand(

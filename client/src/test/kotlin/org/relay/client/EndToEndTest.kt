@@ -57,10 +57,10 @@ class EndToEndTest {
         assertEquals("test-secret-key", params.secretKey)
         assertNull(params.subdomain, "Subdomain should be null for random assignment")
         assertEquals("http://localhost:3000", params.localUrl)
-        assertEquals("wss://tun.example.com/ws", params.serverUrl)
+        assertEquals("wss://tun.example.com/ws?secret=test-secret-key", params.serverUrl)
 
         // Verify system properties were set for ClientConfig integration
-        assertEquals("wss://tun.example.com/ws", System.getProperty("relay.client.server-url"))
+        assertEquals("wss://tun.example.com/ws?secret=test-secret-key", System.getProperty("relay.client.server-url"))
         assertEquals("http://localhost:3000", System.getProperty("relay.client.local-url"))
         assertEquals("test-secret-key", System.getProperty("relay.client.secret-key"))
         assertNull(System.getProperty("relay.client.subdomain"))
@@ -89,7 +89,7 @@ class EndToEndTest {
         assertEquals("my-secret", params.secretKey)
         assertEquals("myapp", params.subdomain)
         assertEquals("http://localhost:8080", params.localUrl)
-        assertEquals("wss://tun.example.com/ws", params.serverUrl)
+        assertEquals("wss://tun.example.com/ws?secret=my-secret&subdomain=myapp", params.serverUrl)
 
         // Verify subdomain system property is set
         assertEquals("myapp", System.getProperty("relay.client.subdomain"))
@@ -114,7 +114,7 @@ class EndToEndTest {
 
         val params = command.getParameters()
         assertTrue(params.insecure)
-        assertEquals("ws://localhost:8080/ws", params.serverUrl,
+        assertEquals("ws://localhost:8080/ws?secret=test-key", params.serverUrl,
             "Should use ws:// when insecure flag is set")
     }
 
@@ -266,7 +266,7 @@ class EndToEndTest {
         assertEquals(0, exitCode, "Full integration should succeed")
 
         // Verify all system properties are correctly set
-        assertEquals("ws://relay.example.com/ws", System.getProperty("relay.client.server-url"),
+        assertEquals("ws://relay.example.com/ws?secret=integration-test-key&subdomain=integration-test-subdomain", System.getProperty("relay.client.server-url"),
             "Server URL should respect --insecure flag")
 
         assertEquals("http://localhost:4000", System.getProperty("relay.client.local-url"),
@@ -288,7 +288,7 @@ class EndToEndTest {
         assertEquals("integration-test-key", params.secretKey)
         assertEquals("integration-test-subdomain", params.subdomain)
         assertTrue(params.insecure)
-        assertEquals("ws://relay.example.com/ws", params.serverUrl)
+        assertEquals("ws://relay.example.com/ws?secret=integration-test-key&subdomain=integration-test-subdomain", params.serverUrl)
         assertEquals("http://localhost:4000", params.localUrl)
     }
 

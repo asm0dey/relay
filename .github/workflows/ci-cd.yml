@@ -103,6 +103,10 @@ jobs:
             ext: ""
     runs-on: ${{ matrix.os }}
     steps:
+      - name: Configure Git for Windows paths
+        if: runner.os == 'windows-latest'
+        shell: pwsh
+        run: git config core.protectNTFS false
       - uses: actions/checkout@v4
         with:
           sparse-checkout: |
@@ -121,12 +125,7 @@ jobs:
 
       - name: Build Native Client
         shell: bash
-        run: |
-          if [ "${{ matrix.arch }}" = "arm64" ] && [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
-            ./gradlew :client:build -Dquarkus.package.type=native -Dquarkus.native.container-build=true -Dquarkus.native.builder-image=bellsoft/liberica-native-image-kit-container:jdk-25-nik-25-musl
-          else
-            ./gradlew :client:build -Dquarkus.package.type=native
-          fi
+        run: ./gradlew :client:build -Dquarkus.package.type=native
 
       - name: Prepare Artifact
         shell: bash

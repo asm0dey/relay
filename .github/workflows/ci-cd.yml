@@ -19,14 +19,14 @@ jobs:
             !.*/**/:*
             !**/.*/**/:*
           sparse-checkout-cone-mode: false
-      
+
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           java-version: '25'
           distribution: 'liberica'
           cache: 'gradle'
-          
+
       - name: Run tests
         run: ./gradlew test
 
@@ -112,6 +112,7 @@ jobs:
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: git config --global core.protectNTFS false
+
       - uses: actions/checkout@v4
         with:
           sparse-checkout: |
@@ -119,6 +120,10 @@ jobs:
             !.*/**/:*
             !**/.*/**/:*
           sparse-checkout-cone-mode: false
+
+      - name: Configure Git for Windows paths
+        shell: bash
+        run: rm -rf .tessl .claude .codex .gemini .specify
 
       - name: Set up Liberica NIK
         uses: graalvm/setup-graalvm@v1
@@ -248,7 +253,7 @@ jobs:
 
   release:
     name: Create GitHub Release
-    needs: [build-server, build-client, docker-manifest]
+    needs: [ build-server, build-client, docker-manifest ]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:

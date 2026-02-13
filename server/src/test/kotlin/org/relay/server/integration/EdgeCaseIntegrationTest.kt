@@ -1,13 +1,11 @@
 package org.relay.server.integration
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
-import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import io.quarkus.test.common.http.TestHTTPResource
 import io.quarkus.test.junit.QuarkusTest
 import io.quarkus.test.junit.TestProfile
 import jakarta.inject.Inject
 import jakarta.websocket.*
+import kotlinx.serialization.json.JsonObject
 import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.*
@@ -37,10 +35,6 @@ class EdgeCaseIntegrationTest {
     @TestHTTPResource
     var baseUrl: URL? = null
 
-    private val mapper = ObjectMapper()
-        .registerModule(JavaTimeModule())
-        .registerKotlinModule()
-    
     private val httpClient = HttpClient.newBuilder()
         .connectTimeout(Duration.ofSeconds(2))
         .build()
@@ -61,7 +55,8 @@ class EdgeCaseIntegrationTest {
         sessions.add(session)
         
         await().atMost(Duration.ofSeconds(5)).until { tunnelClient.messages.isNotEmpty() }
-        subdomain = mapper.readValue(tunnelClient.messages.first(), Envelope::class.java).payload.get("subdomain").asText()
+        val envelope = tunnelClient.messages.first().toEnvelope()
+        subdomain = (envelope.payload as JsonObject)["subdomain"].toString().replace("\"", "")
         tunnelClient.messages.clear()
     }
 
@@ -101,16 +96,16 @@ class EdgeCaseIntegrationTest {
 
         // Tunnel client receives request
         await().atMost(Duration.ofSeconds(5)).until { tunnelClient.messages.isNotEmpty() }
-        val requestEnvelope = mapper.readValue(tunnelClient.messages.first(), Envelope::class.java)
+        val requestEnvelope = tunnelClient.messages.first().toEnvelope()
         
         // Send back ERROR instead of RESPONSE
         val errorPayload = ErrorPayload(ErrorCode.UPSTREAM_ERROR, "Non-HTTP response")
         val errorEnvelope = Envelope(
             correlationId = requestEnvelope.correlationId,
             type = MessageType.ERROR,
-            payload = mapper.valueToTree(errorPayload)
+            payload = errorPayload.toJsonElement()
         )
-        sessions.first().basicRemote.sendText(mapper.writeValueAsString(errorEnvelope))
+        sessions.first().basicRemote.sendText(errorEnvelope.toJson())
 
         val response = responseFuture.get()
         assertEquals(502, response.statusCode())

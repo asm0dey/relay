@@ -11,12 +11,7 @@ import ch.qos.logback.core.read.ListAppender
 import org.slf4j.LoggerFactory
 import org.relay.client.websocket.WebSocketClientEndpoint
 import org.relay.client.config.ClientConfig
-import org.relay.shared.protocol.ControlPayload
-import org.relay.shared.protocol.Envelope
-import org.relay.shared.protocol.MessageType
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
-import com.fasterxml.jackson.module.kotlin.KotlinModule
+import org.relay.shared.protocol.*
 import org.mockito.Mockito.*
 
 /**
@@ -38,10 +33,6 @@ class ConnectionFeedbackTest {
     private lateinit var logger: Logger
     private lateinit var clientEndpoint: WebSocketClientEndpoint
     private lateinit var clientConfig: ClientConfig
-    private val objectMapper = ObjectMapper().apply {
-        registerModule(JavaTimeModule())
-        registerModule(KotlinModule.Builder().build())
-    }
 
     @BeforeEach
     fun setup() {
@@ -78,8 +69,7 @@ class ConnectionFeedbackTest {
             clientConfig,
             reconnectionHandler,
             localHttpProxy,
-            localWebSocketProxy,
-            objectMapper
+            localWebSocketProxy
         )
 
         // When: A REGISTERED control message is received
@@ -92,10 +82,10 @@ class ConnectionFeedbackTest {
         val envelope = Envelope(
             correlationId = "test-123",
             type = MessageType.CONTROL,
-            payload = objectMapper.valueToTree(controlPayload)
+            payload = controlPayload.toJsonElement()
         )
 
-        val message = objectMapper.writeValueAsString(envelope)
+        val message = envelope.toJson()
 
         // Simulate message reception (bypassing WebSocket session requirement)
         clientEndpoint.onMessage(message, mock(jakarta.websocket.Session::class.java))
@@ -125,8 +115,7 @@ class ConnectionFeedbackTest {
             clientConfig,
             reconnectionHandler,
             localHttpProxy,
-            localWebSocketProxy,
-            objectMapper
+            localWebSocketProxy
         )
 
         // When: A REGISTERED control message is received
@@ -139,10 +128,10 @@ class ConnectionFeedbackTest {
         val envelope = Envelope(
             correlationId = "test-456",
             type = MessageType.CONTROL,
-            payload = objectMapper.valueToTree(controlPayload)
+            payload = controlPayload.toJsonElement()
         )
 
-        val message = objectMapper.writeValueAsString(envelope)
+        val message = envelope.toJson()
         clientEndpoint.onMessage(message, mock(jakarta.websocket.Session::class.java))
 
         // Then: The message should be at INFO level
@@ -174,8 +163,7 @@ class ConnectionFeedbackTest {
             clientConfig,
             reconnectionHandler,
             localHttpProxy,
-            localWebSocketProxy,
-            objectMapper
+            localWebSocketProxy
         )
 
         // When: A REGISTERED control message is received
@@ -188,10 +176,10 @@ class ConnectionFeedbackTest {
         val envelope = Envelope(
             correlationId = "test-789",
             type = MessageType.CONTROL,
-            payload = objectMapper.valueToTree(controlPayload)
+            payload = controlPayload.toJsonElement()
         )
 
-        val message = objectMapper.writeValueAsString(envelope)
+        val message = envelope.toJson()
         clientEndpoint.onMessage(message, mock(jakarta.websocket.Session::class.java))
 
         // Then: Message format should be correct

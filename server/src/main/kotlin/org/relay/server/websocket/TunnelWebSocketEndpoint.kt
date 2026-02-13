@@ -1,11 +1,11 @@
 package org.relay.server.websocket
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import jakarta.inject.Inject
 import jakarta.websocket.*
 import jakarta.websocket.server.HandshakeRequest
 import jakarta.websocket.server.ServerEndpoint
 import jakarta.websocket.server.ServerEndpointConfig
+import kotlinx.serialization.json.*
 import org.relay.server.config.RelayConfig
 import org.relay.server.tunnel.*
 import org.relay.shared.protocol.*
@@ -25,7 +25,6 @@ class TunnelWebSocketEndpoint @Inject constructor(
     private val tunnelRegistry: TunnelRegistry,
     private val subdomainGenerator: SubdomainGenerator,
     private val relayConfig: RelayConfig,
-    private val objectMapper: ObjectMapper,
     private val externalWebSocketEndpoint: ExternalWebSocketEndpoint
 ) {
 
@@ -135,14 +134,14 @@ class TunnelWebSocketEndpoint @Inject constructor(
             subdomain, session.id, message.length, message.take(200))
 
         try {
-            val envelope = objectMapper.readValue(message, Envelope::class.java)
+            val envelope = message.toEnvelope()
 
             // Check if this is a WebSocket frame message (has WebSocketFramePayload structure)
             // Handle this BEFORE regular RESPONSE/ERROR to avoid deserialization errors
             val payload = envelope.payload
-            if (payload.has("type") && (payload.has("data") || payload.has("closeCode"))) {
+            if (payload is JsonObject && payload.containsKey("type") && (payload.containsKey("data") || payload.containsKey("closeCode"))) {
                 try {
-                    val framePayload = objectMapper.treeToValue(envelope.payload, WebSocketFramePayload::class.java)
+                    val framePayload = envelope.payload.toObject<WebSocketFramePayload>()
                     // Route WebSocket frame to external endpoint
                     if (subdomain != null) {
                         externalWebSocketEndpoint.handleFrameFromTunnel(subdomain, envelope.correlationId, framePayload)
@@ -282,10 +281,10 @@ class TunnelWebSocketEndpoint @Inject constructor(
             val envelope = Envelope(
                 correlationId = generateCorrelationId(),
                 type = MessageType.CONTROL,
-                payload = objectMapper.valueToTree(controlPayload)
+                payload = controlPayload.toJsonElement()
             )
 
-            val message = objectMapper.writeValueAsString(envelope)
+            val message = envelope.toJson()
             session.asyncRemote.sendText(message)
 
             logger.debug("Sent REGISTERED message to subdomain={}: {}", subdomain, publicUrl)
@@ -300,7 +299,7 @@ class TunnelWebSocketEndpoint @Inject constructor(
      */
     private fun handleResponseMessage(envelope: Envelope, subdomain: String?) {
         try {
-            val responsePayload = objectMapper.treeToValue(envelope.payload, ResponsePayload::class.java)
+            val responsePayload = envelope.payload.toObject<ResponsePayload>()
 
             logger.debug("Handling response from client: subdomain={}, correlationId={}, statusCode={}", 
                 subdomain, envelope.correlationId, responsePayload.statusCode)
@@ -322,7 +321,7 @@ class TunnelWebSocketEndpoint @Inject constructor(
      */
     private fun handleErrorMessage(envelope: Envelope, subdomain: String?) {
         try {
-            val errorPayload = objectMapper.treeToValue(envelope.payload, ErrorPayload::class.java)
+            val errorPayload = envelope.payload.toObject<ErrorPayload>()
 
             // Find and complete the pending request exceptionally
             if (tunnelRegistry.completePendingRequestExceptionally(

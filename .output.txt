@@ -1,0 +1,535 @@
+|    +--- io.quarkus:quarkus-config-yaml:3.31.3 (c)
+|    +--- io.quarkus:quarkus-kotlin:3.31.3 (c)
+|    +--- io.quarkus:quarkus-picocli:3.31.3 (c)
+|    +--- io.quarkus:quarkus-websockets:3.31.3 (c)
+|    +--- io.quarkus:quarkus-core:3.31.3 (c)
+|    +--- io.quarkus:quarkus-arc:3.31.3 (c)
+|    +--- io.quarkus:quarkus-vertx-http:3.31.3 (c)
+|    +--- io.quarkus:quarkus-websockets-client:3.31.3 (c)
+|    +--- io.quarkus:quarkus-ide-launcher:3.31.3 (c)
+|    +--- io.quarkus:quarkus-development-mode-spi:3.31.3 (c)
+|    +--- io.quarkus:quarkus-registry:3.31.3 (c)
+|    +--- io.quarkus:quarkus-bootstrap-runner:3.31.3 (c)
+|    +--- io.quarkus:quarkus-fs-util:1.3.0 (c)
+|    +--- io.quarkus:quarkus-security-runtime-spi:3.31.3 (c)
+|    +--- io.quarkus:quarkus-tls-registry:3.31.3 (c)
+|    +--- io.quarkus:quarkus-credentials:3.31.3 (c)
+|    +--- io.quarkus:quarkus-mutiny:3.31.3 (c)
+|    +--- io.quarkus:quarkus-vertx:3.31.3 (c)
+|    +--- io.quarkus:quarkus-classloader-commons:3.31.3 (c)
+|    +--- io.quarkus:quarkus-tls-registry-spi:3.31.3 (c)
+|    +--- io.quarkus:quarkus-smallrye-context-propagation:3.31.3 (c)
+|    +--- io.quarkus:quarkus-netty:3.31.3 (c)
+|    +--- io.quarkus:quarkus-virtual-threads:3.31.3 (c)
+|    +--- io.quarkus:quarkus-vertx-latebound-mdc-provider:3.31.3 (c)
++--- io.quarkus:quarkus-kotlin -> 3.31.3
+|    +--- io.quarkus:quarkus-core:3.31.3
+|    |    +--- io.quarkus:quarkus-ide-launcher:3.31.3
+|    |    +--- io.quarkus:quarkus-development-mode-spi:3.31.3
+|    |    +--- io.quarkus:quarkus-registry:3.31.3
+|    |    +--- io.quarkus:quarkus-bootstrap-runner:3.31.3
+|    |    |    +--- io.quarkus:quarkus-classloader-commons:3.31.3
+|    |    \--- io.quarkus:quarkus-fs-util:1.3.0
++--- io.quarkus:quarkus-websockets -> 3.31.3
+|    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|    +--- io.quarkus:quarkus-vertx-http:3.31.3
+|    |    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|    |    +--- io.quarkus:quarkus-security-runtime-spi:3.31.3
+|    |    |    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|    |    +--- io.quarkus:quarkus-tls-registry:3.31.3
+|    |    |    +--- io.quarkus:quarkus-tls-registry-spi:3.31.3
+|    |    |    |    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|    |    |    |    \--- io.quarkus:quarkus-vertx:3.31.3
+|    |    |    |         +--- io.quarkus:quarkus-arc:3.31.3
+|    |    |    |         |    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|    |    |    |         +--- io.quarkus:quarkus-netty:3.31.3
+|    |    |    |         |    +--- io.quarkus:quarkus-arc:3.31.3 (*)
+|    |    |    |         +--- io.quarkus:quarkus-mutiny:3.31.3
+|    |    |    |         |    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|    |    |    |         |    +--- io.quarkus:quarkus-smallrye-context-propagation:3.31.3
+|    |    |    |         |    |    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|    |    |    |         |    |    \--- io.quarkus:quarkus-arc:3.31.3 (*)
+|    |    |    |         +--- io.quarkus:quarkus-virtual-threads:3.31.3
+|    |    |    |         |    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|    |    |    |         |    +--- io.quarkus:quarkus-arc:3.31.3 (*)
+|    |    |    |         +--- io.quarkus:quarkus-vertx-latebound-mdc-provider:3.31.3
+|    |    |    |         \--- io.quarkus:quarkus-security-runtime-spi:3.31.3 (*)
+|    |    |    +--- io.quarkus:quarkus-arc:3.31.3 (*)
+|    |    |    +--- io.quarkus:quarkus-credentials:3.31.3
+|    |    +--- io.quarkus:quarkus-credentials:3.31.3 (*)
+|    |    +--- io.quarkus:quarkus-mutiny:3.31.3 (*)
+|    |    +--- io.quarkus:quarkus-vertx:3.31.3 (*)
+|    +--- io.quarkus:quarkus-websockets-client:3.31.3
+|    |    +--- io.quarkus:quarkus-vertx:3.31.3 (*)
++--- io.quarkus:quarkus-kotlinx-serialization:3.31.3 FAILED
++--- io.quarkus:quarkus-picocli -> 3.31.3
+|    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|    +--- io.quarkus:quarkus-arc:3.31.3 (*)
++--- io.quarkus:quarkus-config-yaml -> 3.31.3
+|    +--- io.quarkus:quarkus-core:3.31.3 (*)
++--- io.quarkus:quarkus-kotlin (n)
++--- io.quarkus:quarkus-websockets (n)
++--- io.quarkus:quarkus-kotlinx-serialization:3.31.3 (n)
++--- io.quarkus:quarkus-picocli (n)
++--- io.quarkus:quarkus-config-yaml (n)
+|    +--- io.quarkus:quarkus-config-yaml:3.31.3 (c)
+|    +--- io.quarkus:quarkus-junit5:3.31.3 (c)
+|    +--- io.quarkus:quarkus-kotlin:3.31.3 (c)
+|    +--- io.quarkus:quarkus-picocli:3.31.3 (c)
+|    +--- io.quarkus:quarkus-websockets:3.31.3 (c)
+|    +--- io.quarkus:quarkus-core:3.31.3 (c)
+|    +--- io.quarkus:quarkus-junit:3.31.3 (c)
+|    +--- io.quarkus:quarkus-arc:3.31.3 (c)
+|    +--- io.quarkus:quarkus-vertx-http:3.31.3 (c)
+|    +--- io.quarkus:quarkus-websockets-client:3.31.3 (c)
+|    +--- io.quarkus:quarkus-ide-launcher:3.31.3 (c)
+|    +--- io.quarkus:quarkus-development-mode-spi:3.31.3 (c)
+|    +--- io.quarkus:quarkus-registry:3.31.3 (c)
+|    +--- io.quarkus:quarkus-bootstrap-runner:3.31.3 (c)
+|    +--- io.quarkus:quarkus-fs-util:1.3.0 (c)
+|    +--- io.quarkus:quarkus-bootstrap-core:3.31.3 (c)
+|    +--- io.quarkus:quarkus-test-common:3.31.3 (c)
+|    +--- io.quarkus:quarkus-junit-config:3.31.3 (c)
+|    +--- io.quarkus:quarkus-security-runtime-spi:3.31.3 (c)
+|    +--- io.quarkus:quarkus-tls-registry:3.31.3 (c)
+|    +--- io.quarkus:quarkus-credentials:3.31.3 (c)
+|    +--- io.quarkus:quarkus-mutiny:3.31.3 (c)
+|    +--- io.quarkus:quarkus-vertx:3.31.3 (c)
+|    +--- io.quarkus:quarkus-classloader-commons:3.31.3 (c)
+|    +--- io.quarkus:quarkus-bootstrap-app-model:3.31.3 (c)
+|    +--- io.quarkus:quarkus-bootstrap-json:3.31.3 (c)
+|    +--- io.quarkus:quarkus-core-deployment:3.31.3 (c)
+|    +--- io.quarkus:quarkus-bootstrap-maven-resolver:3.31.3 (c)
+|    +--- io.quarkus:quarkus-bootstrap-gradle-resolver:3.31.3 (c)
+|    +--- io.quarkus:quarkus-tls-registry-spi:3.31.3 (c)
+|    +--- io.quarkus:quarkus-smallrye-context-propagation:3.31.3 (c)
+|    +--- io.quarkus:quarkus-netty:3.31.3 (c)
+|    +--- io.quarkus:quarkus-virtual-threads:3.31.3 (c)
+|    +--- io.quarkus:quarkus-vertx-latebound-mdc-provider:3.31.3 (c)
+|    +--- io.quarkus:quarkus-hibernate-validator-spi:3.31.3 (c)
+|    +--- io.quarkus:quarkus-class-change-agent:3.31.3 (c)
+|    +--- io.quarkus:quarkus-builder:3.31.3 (c)
++--- io.quarkus:quarkus-kotlin -> 3.31.3
+|    +--- io.quarkus:quarkus-core:3.31.3
+|    |    +--- io.quarkus:quarkus-ide-launcher:3.31.3
+|    |    +--- io.quarkus:quarkus-development-mode-spi:3.31.3
+|    |    +--- io.quarkus:quarkus-registry:3.31.3
+|    |    +--- io.quarkus:quarkus-bootstrap-runner:3.31.3
+|    |    |    +--- io.quarkus:quarkus-classloader-commons:3.31.3
+|    |    \--- io.quarkus:quarkus-fs-util:1.3.0
++--- io.quarkus:quarkus-websockets -> 3.31.3
+|    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|    +--- io.quarkus:quarkus-vertx-http:3.31.3
+|    |    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|    |    +--- io.quarkus:quarkus-security-runtime-spi:3.31.3
+|    |    |    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|    |    +--- io.quarkus:quarkus-tls-registry:3.31.3
+|    |    |    +--- io.quarkus:quarkus-tls-registry-spi:3.31.3
+|    |    |    |    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|    |    |    |    \--- io.quarkus:quarkus-vertx:3.31.3
+|    |    |    |         +--- io.quarkus:quarkus-arc:3.31.3
+|    |    |    |         |    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|    |    |    |         +--- io.quarkus:quarkus-netty:3.31.3
+|    |    |    |         |    +--- io.quarkus:quarkus-arc:3.31.3 (*)
+|    |    |    |         +--- io.quarkus:quarkus-mutiny:3.31.3
+|    |    |    |         |    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|    |    |    |         |    +--- io.quarkus:quarkus-smallrye-context-propagation:3.31.3
+|    |    |    |         |    |    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|    |    |    |         |    |    \--- io.quarkus:quarkus-arc:3.31.3 (*)
+|    |    |    |         +--- io.quarkus:quarkus-virtual-threads:3.31.3
+|    |    |    |         |    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|    |    |    |         |    +--- io.quarkus:quarkus-arc:3.31.3 (*)
+|    |    |    |         +--- io.quarkus:quarkus-vertx-latebound-mdc-provider:3.31.3
+|    |    |    |         \--- io.quarkus:quarkus-security-runtime-spi:3.31.3 (*)
+|    |    |    +--- io.quarkus:quarkus-arc:3.31.3 (*)
+|    |    |    +--- io.quarkus:quarkus-credentials:3.31.3
+|    |    +--- io.quarkus:quarkus-credentials:3.31.3 (*)
+|    |    +--- io.quarkus:quarkus-mutiny:3.31.3 (*)
+|    |    +--- io.quarkus:quarkus-vertx:3.31.3 (*)
+|    +--- io.quarkus:quarkus-websockets-client:3.31.3
+|    |    +--- io.quarkus:quarkus-vertx:3.31.3 (*)
++--- io.quarkus:quarkus-kotlinx-serialization:3.31.3 FAILED
++--- io.quarkus:quarkus-picocli -> 3.31.3
+|    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|    +--- io.quarkus:quarkus-arc:3.31.3 (*)
++--- io.quarkus:quarkus-config-yaml -> 3.31.3
+|    +--- io.quarkus:quarkus-core:3.31.3 (*)
++--- io.quarkus:quarkus-junit5 -> 3.31.3
+|    \--- io.quarkus:quarkus-junit:3.31.3
+|         +--- io.quarkus:quarkus-bootstrap-core:3.31.3
+|         |    +--- io.quarkus:quarkus-classloader-commons:3.31.3
+|         |    +--- io.quarkus:quarkus-registry:3.31.3
+|         |    +--- io.quarkus:quarkus-bootstrap-app-model:3.31.3
+|         |    |    +--- io.quarkus:quarkus-fs-util:1.3.0
+|         |    +--- io.quarkus:quarkus-bootstrap-json:3.31.3
+|         +--- io.quarkus:quarkus-test-common:3.31.3
+|         |    +--- io.quarkus:quarkus-core-deployment:3.31.3
+|         |    |    +--- io.quarkus:quarkus-classloader-commons:3.31.3
+|         |    |    +--- io.quarkus:quarkus-development-mode-spi:3.31.3 (*)
+|         |    |    +--- io.quarkus:quarkus-hibernate-validator-spi:3.31.3
+|         |    |    |    +--- io.quarkus:quarkus-builder:3.31.3
+|         |    |    |    |    +--- io.quarkus:quarkus-bootstrap-json:3.31.3
+|         |    |    +--- io.quarkus:quarkus-class-change-agent:3.31.3
+|         |    |    +--- io.quarkus:quarkus-bootstrap-core:3.31.3 (*)
+|         |    |    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|         |    |    +--- io.quarkus:quarkus-builder:3.31.3 (*)
+|         |    +--- io.quarkus:quarkus-bootstrap-maven-resolver:3.31.3
+|         |    |    +--- io.quarkus:quarkus-classloader-commons:3.31.3
+|         |    |    +--- io.quarkus:quarkus-bootstrap-app-model:3.31.3 (*)
+|         |    |    +--- io.quarkus:quarkus-fs-util:1.3.0
+|         |    |    +--- io.quarkus:quarkus-bootstrap-maven4-resolver:3.31.3
+|         |    +--- io.quarkus:quarkus-bootstrap-gradle-resolver:3.31.3
+|         |    |    +--- io.quarkus:quarkus-bootstrap-app-model:3.31.3 (*)
+|         +--- io.quarkus:quarkus-junit-config:3.31.3
+|         |    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|         |    \--- io.quarkus:quarkus-core-deployment:3.31.3 (*)
+|         \--- io.quarkus:quarkus-core:3.31.3 (*)
+|    +--- io.quarkus:quarkus-config-yaml:3.31.3 (c)
+|    +--- io.quarkus:quarkus-junit5:3.31.3 (c)
+|    +--- io.quarkus:quarkus-kotlin:3.31.3 (c)
+|    +--- io.quarkus:quarkus-picocli:3.31.3 (c)
+|    +--- io.quarkus:quarkus-websockets:3.31.3 (c)
+|    +--- io.quarkus:quarkus-core:3.31.3 (c)
+|    +--- io.quarkus:quarkus-junit:3.31.3 (c)
+|    +--- io.quarkus:quarkus-arc:3.31.3 (c)
+|    +--- io.quarkus:quarkus-vertx-http:3.31.3 (c)
+|    +--- io.quarkus:quarkus-websockets-client:3.31.3 (c)
+|    +--- io.quarkus:quarkus-ide-launcher:3.31.3 (c)
+|    +--- io.quarkus:quarkus-development-mode-spi:3.31.3 (c)
+|    +--- io.quarkus:quarkus-registry:3.31.3 (c)
+|    +--- io.quarkus:quarkus-bootstrap-runner:3.31.3 (c)
+|    +--- io.quarkus:quarkus-fs-util:1.3.0 (c)
+|    +--- io.quarkus:quarkus-bootstrap-core:3.31.3 (c)
+|    +--- io.quarkus:quarkus-test-common:3.31.3 (c)
+|    +--- io.quarkus:quarkus-junit-config:3.31.3 (c)
+|    +--- io.quarkus:quarkus-security-runtime-spi:3.31.3 (c)
+|    +--- io.quarkus:quarkus-tls-registry:3.31.3 (c)
+|    +--- io.quarkus:quarkus-credentials:3.31.3 (c)
+|    +--- io.quarkus:quarkus-mutiny:3.31.3 (c)
+|    +--- io.quarkus:quarkus-vertx:3.31.3 (c)
+|    +--- io.quarkus:quarkus-classloader-commons:3.31.3 (c)
+|    +--- io.quarkus:quarkus-bootstrap-app-model:3.31.3 (c)
+|    +--- io.quarkus:quarkus-bootstrap-json:3.31.3 (c)
+|    +--- io.quarkus:quarkus-core-deployment:3.31.3 (c)
+|    +--- io.quarkus:quarkus-bootstrap-maven-resolver:3.31.3 (c)
+|    +--- io.quarkus:quarkus-bootstrap-gradle-resolver:3.31.3 (c)
+|    +--- io.quarkus:quarkus-tls-registry-spi:3.31.3 (c)
+|    +--- io.quarkus:quarkus-smallrye-context-propagation:3.31.3 (c)
+|    +--- io.quarkus:quarkus-netty:3.31.3 (c)
+|    +--- io.quarkus:quarkus-virtual-threads:3.31.3 (c)
+|    +--- io.quarkus:quarkus-vertx-latebound-mdc-provider:3.31.3 (c)
+|    +--- io.quarkus:quarkus-hibernate-validator-spi:3.31.3 (c)
+|    +--- io.quarkus:quarkus-class-change-agent:3.31.3 (c)
+|    +--- io.quarkus:quarkus-builder:3.31.3 (c)
++--- io.quarkus:quarkus-kotlin -> 3.31.3
+|    +--- io.quarkus:quarkus-core:3.31.3
+|    |    +--- io.quarkus:quarkus-ide-launcher:3.31.3
+|    |    +--- io.quarkus:quarkus-development-mode-spi:3.31.3
+|    |    +--- io.quarkus:quarkus-registry:3.31.3
+|    |    +--- io.quarkus:quarkus-bootstrap-runner:3.31.3
+|    |    |    +--- io.quarkus:quarkus-classloader-commons:3.31.3
+|    |    \--- io.quarkus:quarkus-fs-util:1.3.0
++--- io.quarkus:quarkus-websockets -> 3.31.3
+|    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|    +--- io.quarkus:quarkus-vertx-http:3.31.3
+|    |    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|    |    +--- io.quarkus:quarkus-security-runtime-spi:3.31.3
+|    |    |    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|    |    +--- io.quarkus:quarkus-tls-registry:3.31.3
+|    |    |    +--- io.quarkus:quarkus-tls-registry-spi:3.31.3
+|    |    |    |    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|    |    |    |    \--- io.quarkus:quarkus-vertx:3.31.3
+|    |    |    |         +--- io.quarkus:quarkus-arc:3.31.3
+|    |    |    |         |    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|    |    |    |         +--- io.quarkus:quarkus-netty:3.31.3
+|    |    |    |         |    +--- io.quarkus:quarkus-arc:3.31.3 (*)
+|    |    |    |         +--- io.quarkus:quarkus-mutiny:3.31.3
+|    |    |    |         |    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|    |    |    |         |    +--- io.quarkus:quarkus-smallrye-context-propagation:3.31.3
+|    |    |    |         |    |    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|    |    |    |         |    |    \--- io.quarkus:quarkus-arc:3.31.3 (*)
+|    |    |    |         +--- io.quarkus:quarkus-virtual-threads:3.31.3
+|    |    |    |         |    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|    |    |    |         |    +--- io.quarkus:quarkus-arc:3.31.3 (*)
+|    |    |    |         +--- io.quarkus:quarkus-vertx-latebound-mdc-provider:3.31.3
+|    |    |    |         \--- io.quarkus:quarkus-security-runtime-spi:3.31.3 (*)
+|    |    |    +--- io.quarkus:quarkus-arc:3.31.3 (*)
+|    |    |    +--- io.quarkus:quarkus-credentials:3.31.3
+|    |    +--- io.quarkus:quarkus-credentials:3.31.3 (*)
+|    |    +--- io.quarkus:quarkus-mutiny:3.31.3 (*)
+|    |    +--- io.quarkus:quarkus-vertx:3.31.3 (*)
+|    +--- io.quarkus:quarkus-websockets-client:3.31.3
+|    |    +--- io.quarkus:quarkus-vertx:3.31.3 (*)
++--- io.quarkus:quarkus-kotlinx-serialization:3.31.3 FAILED
++--- io.quarkus:quarkus-picocli -> 3.31.3
+|    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|    +--- io.quarkus:quarkus-arc:3.31.3 (*)
++--- io.quarkus:quarkus-config-yaml -> 3.31.3
+|    +--- io.quarkus:quarkus-core:3.31.3 (*)
++--- io.quarkus:quarkus-junit5 -> 3.31.3
+|    \--- io.quarkus:quarkus-junit:3.31.3
+|         +--- io.quarkus:quarkus-bootstrap-core:3.31.3
+|         |    +--- io.quarkus:quarkus-classloader-commons:3.31.3
+|         |    +--- io.quarkus:quarkus-registry:3.31.3
+|         |    +--- io.quarkus:quarkus-bootstrap-app-model:3.31.3
+|         |    |    +--- io.quarkus:quarkus-fs-util:1.3.0
+|         |    +--- io.quarkus:quarkus-bootstrap-json:3.31.3
+|         +--- io.quarkus:quarkus-test-common:3.31.3
+|         |    +--- io.quarkus:quarkus-core-deployment:3.31.3
+|         |    |    +--- io.quarkus:quarkus-classloader-commons:3.31.3
+|         |    |    +--- io.quarkus:quarkus-development-mode-spi:3.31.3 (*)
+|         |    |    +--- io.quarkus:quarkus-hibernate-validator-spi:3.31.3
+|         |    |    |    +--- io.quarkus:quarkus-builder:3.31.3
+|         |    |    |    |    +--- io.quarkus:quarkus-bootstrap-json:3.31.3
+|         |    |    +--- io.quarkus:quarkus-class-change-agent:3.31.3
+|         |    |    +--- io.quarkus:quarkus-bootstrap-core:3.31.3 (*)
+|         |    |    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|         |    |    +--- io.quarkus:quarkus-builder:3.31.3 (*)
+|         |    +--- io.quarkus:quarkus-bootstrap-maven-resolver:3.31.3
+|         |    |    +--- io.quarkus:quarkus-classloader-commons:3.31.3
+|         |    |    +--- io.quarkus:quarkus-bootstrap-app-model:3.31.3 (*)
+|         |    |    +--- io.quarkus:quarkus-fs-util:1.3.0
+|         |    |    +--- io.quarkus:quarkus-bootstrap-maven4-resolver:3.31.3
+|         |    +--- io.quarkus:quarkus-bootstrap-gradle-resolver:3.31.3
+|         |    |    +--- io.quarkus:quarkus-bootstrap-app-model:3.31.3 (*)
+|         +--- io.quarkus:quarkus-junit-config:3.31.3
+|         |    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|         |    \--- io.quarkus:quarkus-core-deployment:3.31.3 (*)
+|         \--- io.quarkus:quarkus-core:3.31.3 (*)
+|    +--- io.quarkus:quarkus-config-yaml:3.31.3 (c)
+|    +--- io.quarkus:quarkus-junit5:3.31.3 (c)
+|    +--- io.quarkus:quarkus-kotlin:3.31.3 (c)
+|    +--- io.quarkus:quarkus-picocli:3.31.3 (c)
+|    +--- io.quarkus:quarkus-websockets:3.31.3 (c)
+|    +--- io.quarkus:quarkus-core:3.31.3 (c)
+|    +--- io.quarkus:quarkus-junit:3.31.3 (c)
+|    +--- io.quarkus:quarkus-arc:3.31.3 (c)
+|    +--- io.quarkus:quarkus-vertx-http:3.31.3 (c)
+|    +--- io.quarkus:quarkus-websockets-client:3.31.3 (c)
+|    +--- io.quarkus:quarkus-ide-launcher:3.31.3 (c)
+|    +--- io.quarkus:quarkus-development-mode-spi:3.31.3 (c)
+|    +--- io.quarkus:quarkus-registry:3.31.3 (c)
+|    +--- io.quarkus:quarkus-bootstrap-runner:3.31.3 (c)
+|    +--- io.quarkus:quarkus-fs-util:1.3.0 (c)
+|    +--- io.quarkus:quarkus-bootstrap-core:3.31.3 (c)
+|    +--- io.quarkus:quarkus-test-common:3.31.3 (c)
+|    +--- io.quarkus:quarkus-junit-config:3.31.3 (c)
+|    +--- io.quarkus:quarkus-security-runtime-spi:3.31.3 (c)
+|    +--- io.quarkus:quarkus-tls-registry:3.31.3 (c)
+|    +--- io.quarkus:quarkus-credentials:3.31.3 (c)
+|    +--- io.quarkus:quarkus-mutiny:3.31.3 (c)
+|    +--- io.quarkus:quarkus-vertx:3.31.3 (c)
+|    +--- io.quarkus:quarkus-classloader-commons:3.31.3 (c)
+|    +--- io.quarkus:quarkus-bootstrap-app-model:3.31.3 (c)
+|    +--- io.quarkus:quarkus-bootstrap-json:3.31.3 (c)
+|    +--- io.quarkus:quarkus-core-deployment:3.31.3 (c)
+|    +--- io.quarkus:quarkus-bootstrap-maven-resolver:3.31.3 (c)
+|    +--- io.quarkus:quarkus-bootstrap-gradle-resolver:3.31.3 (c)
+|    +--- io.quarkus:quarkus-tls-registry-spi:3.31.3 (c)
+|    +--- io.quarkus:quarkus-smallrye-context-propagation:3.31.3 (c)
+|    +--- io.quarkus:quarkus-netty:3.31.3 (c)
+|    +--- io.quarkus:quarkus-virtual-threads:3.31.3 (c)
+|    +--- io.quarkus:quarkus-vertx-latebound-mdc-provider:3.31.3 (c)
+|    +--- io.quarkus:quarkus-hibernate-validator-spi:3.31.3 (c)
+|    +--- io.quarkus:quarkus-class-change-agent:3.31.3 (c)
+|    +--- io.quarkus:quarkus-builder:3.31.3 (c)
++--- io.quarkus:quarkus-kotlin -> 3.31.3
+|    +--- io.quarkus:quarkus-core:3.31.3
+|    |    +--- io.quarkus:quarkus-ide-launcher:3.31.3
+|    |    +--- io.quarkus:quarkus-development-mode-spi:3.31.3
+|    |    +--- io.quarkus:quarkus-registry:3.31.3
+|    |    +--- io.quarkus:quarkus-bootstrap-runner:3.31.3
+|    |    |    +--- io.quarkus:quarkus-classloader-commons:3.31.3
+|    |    \--- io.quarkus:quarkus-fs-util:1.3.0
++--- io.quarkus:quarkus-websockets -> 3.31.3
+|    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|    +--- io.quarkus:quarkus-vertx-http:3.31.3
+|    |    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|    |    +--- io.quarkus:quarkus-security-runtime-spi:3.31.3
+|    |    |    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|    |    +--- io.quarkus:quarkus-tls-registry:3.31.3
+|    |    |    +--- io.quarkus:quarkus-tls-registry-spi:3.31.3
+|    |    |    |    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|    |    |    |    \--- io.quarkus:quarkus-vertx:3.31.3
+|    |    |    |         +--- io.quarkus:quarkus-arc:3.31.3
+|    |    |    |         |    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|    |    |    |         +--- io.quarkus:quarkus-netty:3.31.3
+|    |    |    |         |    +--- io.quarkus:quarkus-arc:3.31.3 (*)
+|    |    |    |         +--- io.quarkus:quarkus-mutiny:3.31.3
+|    |    |    |         |    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|    |    |    |         |    +--- io.quarkus:quarkus-smallrye-context-propagation:3.31.3
+|    |    |    |         |    |    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|    |    |    |         |    |    \--- io.quarkus:quarkus-arc:3.31.3 (*)
+|    |    |    |         +--- io.quarkus:quarkus-virtual-threads:3.31.3
+|    |    |    |         |    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|    |    |    |         |    +--- io.quarkus:quarkus-arc:3.31.3 (*)
+|    |    |    |         +--- io.quarkus:quarkus-vertx-latebound-mdc-provider:3.31.3
+|    |    |    |         \--- io.quarkus:quarkus-security-runtime-spi:3.31.3 (*)
+|    |    |    +--- io.quarkus:quarkus-arc:3.31.3 (*)
+|    |    |    +--- io.quarkus:quarkus-credentials:3.31.3
+|    |    +--- io.quarkus:quarkus-credentials:3.31.3 (*)
+|    |    +--- io.quarkus:quarkus-mutiny:3.31.3 (*)
+|    |    +--- io.quarkus:quarkus-vertx:3.31.3 (*)
+|    +--- io.quarkus:quarkus-websockets-client:3.31.3
+|    |    +--- io.quarkus:quarkus-vertx:3.31.3 (*)
++--- io.quarkus:quarkus-kotlinx-serialization:3.31.3 FAILED
++--- io.quarkus:quarkus-picocli -> 3.31.3
+|    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|    +--- io.quarkus:quarkus-arc:3.31.3 (*)
++--- io.quarkus:quarkus-config-yaml -> 3.31.3
+|    +--- io.quarkus:quarkus-core:3.31.3 (*)
++--- io.quarkus:quarkus-junit5 -> 3.31.3
+|    \--- io.quarkus:quarkus-junit:3.31.3
+|         +--- io.quarkus:quarkus-bootstrap-core:3.31.3
+|         |    +--- io.quarkus:quarkus-classloader-commons:3.31.3
+|         |    +--- io.quarkus:quarkus-registry:3.31.3
+|         |    +--- io.quarkus:quarkus-bootstrap-app-model:3.31.3
+|         |    |    +--- io.quarkus:quarkus-fs-util:1.3.0
+|         |    +--- io.quarkus:quarkus-bootstrap-json:3.31.3
+|         +--- io.quarkus:quarkus-test-common:3.31.3
+|         |    +--- io.quarkus:quarkus-core-deployment:3.31.3
+|         |    |    +--- io.quarkus:quarkus-classloader-commons:3.31.3
+|         |    |    +--- io.quarkus:quarkus-development-mode-spi:3.31.3 (*)
+|         |    |    +--- io.quarkus:quarkus-hibernate-validator-spi:3.31.3
+|         |    |    |    +--- io.quarkus:quarkus-builder:3.31.3
+|         |    |    |    |    +--- io.quarkus:quarkus-bootstrap-json:3.31.3
+|         |    |    +--- io.quarkus:quarkus-class-change-agent:3.31.3
+|         |    |    +--- io.quarkus:quarkus-bootstrap-core:3.31.3 (*)
+|         |    |    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|         |    |    +--- io.quarkus:quarkus-builder:3.31.3 (*)
+|         |    +--- io.quarkus:quarkus-bootstrap-maven-resolver:3.31.3
+|         |    |    +--- io.quarkus:quarkus-classloader-commons:3.31.3
+|         |    |    +--- io.quarkus:quarkus-bootstrap-app-model:3.31.3 (*)
+|         |    |    +--- io.quarkus:quarkus-fs-util:1.3.0
+|         |    |    +--- io.quarkus:quarkus-bootstrap-maven4-resolver:3.31.3
+|         |    +--- io.quarkus:quarkus-bootstrap-gradle-resolver:3.31.3
+|         |    |    +--- io.quarkus:quarkus-bootstrap-app-model:3.31.3 (*)
+|         +--- io.quarkus:quarkus-junit-config:3.31.3
+|         |    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|         |    \--- io.quarkus:quarkus-core-deployment:3.31.3 (*)
+|         \--- io.quarkus:quarkus-core:3.31.3 (*)
+|    +--- io.quarkus:quarkus-config-yaml:3.31.3 (c)
+|    +--- io.quarkus:quarkus-junit5:3.31.3 (c)
+|    +--- io.quarkus:quarkus-kotlin:3.31.3 (c)
+|    +--- io.quarkus:quarkus-picocli:3.31.3 (c)
+|    +--- io.quarkus:quarkus-websockets:3.31.3 (c)
+|    +--- io.quarkus:quarkus-core:3.31.3 (c)
+|    +--- io.quarkus:quarkus-junit:3.31.3 (c)
+|    +--- io.quarkus:quarkus-arc:3.31.3 (c)
+|    +--- io.quarkus:quarkus-vertx-http:3.31.3 (c)
+|    +--- io.quarkus:quarkus-websockets-client:3.31.3 (c)
+|    +--- io.quarkus:quarkus-ide-launcher:3.31.3 (c)
+|    +--- io.quarkus:quarkus-development-mode-spi:3.31.3 (c)
+|    +--- io.quarkus:quarkus-registry:3.31.3 (c)
+|    +--- io.quarkus:quarkus-bootstrap-runner:3.31.3 (c)
+|    +--- io.quarkus:quarkus-fs-util:1.3.0 (c)
+|    +--- io.quarkus:quarkus-bootstrap-core:3.31.3 (c)
+|    +--- io.quarkus:quarkus-test-common:3.31.3 (c)
+|    +--- io.quarkus:quarkus-junit-config:3.31.3 (c)
+|    +--- io.quarkus:quarkus-security-runtime-spi:3.31.3 (c)
+|    +--- io.quarkus:quarkus-tls-registry:3.31.3 (c)
+|    +--- io.quarkus:quarkus-credentials:3.31.3 (c)
+|    +--- io.quarkus:quarkus-mutiny:3.31.3 (c)
+|    +--- io.quarkus:quarkus-vertx:3.31.3 (c)
+|    +--- io.quarkus:quarkus-classloader-commons:3.31.3 (c)
+|    +--- io.quarkus:quarkus-bootstrap-app-model:3.31.3 (c)
+|    +--- io.quarkus:quarkus-bootstrap-json:3.31.3 (c)
+|    +--- io.quarkus:quarkus-core-deployment:3.31.3 (c)
+|    +--- io.quarkus:quarkus-bootstrap-maven-resolver:3.31.3 (c)
+|    +--- io.quarkus:quarkus-bootstrap-gradle-resolver:3.31.3 (c)
+|    +--- io.quarkus:quarkus-tls-registry-spi:3.31.3 (c)
+|    +--- io.quarkus:quarkus-smallrye-context-propagation:3.31.3 (c)
+|    +--- io.quarkus:quarkus-netty:3.31.3 (c)
+|    +--- io.quarkus:quarkus-virtual-threads:3.31.3 (c)
+|    +--- io.quarkus:quarkus-vertx-latebound-mdc-provider:3.31.3 (c)
+|    +--- io.quarkus:quarkus-hibernate-validator-spi:3.31.3 (c)
+|    +--- io.quarkus:quarkus-class-change-agent:3.31.3 (c)
+|    +--- io.quarkus:quarkus-builder:3.31.3 (c)
++--- io.quarkus:quarkus-kotlin -> 3.31.3
+|    +--- io.quarkus:quarkus-core:3.31.3
+|    |    +--- io.quarkus:quarkus-ide-launcher:3.31.3
+|    |    +--- io.quarkus:quarkus-development-mode-spi:3.31.3
+|    |    +--- io.quarkus:quarkus-registry:3.31.3
+|    |    +--- io.quarkus:quarkus-bootstrap-runner:3.31.3
+|    |    |    +--- io.quarkus:quarkus-classloader-commons:3.31.3
+|    |    \--- io.quarkus:quarkus-fs-util:1.3.0
++--- io.quarkus:quarkus-websockets -> 3.31.3
+|    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|    +--- io.quarkus:quarkus-vertx-http:3.31.3
+|    |    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|    |    +--- io.quarkus:quarkus-security-runtime-spi:3.31.3
+|    |    |    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|    |    +--- io.quarkus:quarkus-tls-registry:3.31.3
+|    |    |    +--- io.quarkus:quarkus-tls-registry-spi:3.31.3
+|    |    |    |    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|    |    |    |    \--- io.quarkus:quarkus-vertx:3.31.3
+|    |    |    |         +--- io.quarkus:quarkus-arc:3.31.3
+|    |    |    |         |    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|    |    |    |         +--- io.quarkus:quarkus-netty:3.31.3
+|    |    |    |         |    +--- io.quarkus:quarkus-arc:3.31.3 (*)
+|    |    |    |         +--- io.quarkus:quarkus-mutiny:3.31.3
+|    |    |    |         |    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|    |    |    |         |    +--- io.quarkus:quarkus-smallrye-context-propagation:3.31.3
+|    |    |    |         |    |    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|    |    |    |         |    |    \--- io.quarkus:quarkus-arc:3.31.3 (*)
+|    |    |    |         +--- io.quarkus:quarkus-virtual-threads:3.31.3
+|    |    |    |         |    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|    |    |    |         |    +--- io.quarkus:quarkus-arc:3.31.3 (*)
+|    |    |    |         +--- io.quarkus:quarkus-vertx-latebound-mdc-provider:3.31.3
+|    |    |    |         \--- io.quarkus:quarkus-security-runtime-spi:3.31.3 (*)
+|    |    |    +--- io.quarkus:quarkus-arc:3.31.3 (*)
+|    |    |    +--- io.quarkus:quarkus-credentials:3.31.3
+|    |    +--- io.quarkus:quarkus-credentials:3.31.3 (*)
+|    |    +--- io.quarkus:quarkus-mutiny:3.31.3 (*)
+|    |    +--- io.quarkus:quarkus-vertx:3.31.3 (*)
+|    +--- io.quarkus:quarkus-websockets-client:3.31.3
+|    |    +--- io.quarkus:quarkus-vertx:3.31.3 (*)
++--- io.quarkus:quarkus-kotlinx-serialization:3.31.3 FAILED
++--- io.quarkus:quarkus-picocli -> 3.31.3
+|    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|    +--- io.quarkus:quarkus-arc:3.31.3 (*)
++--- io.quarkus:quarkus-config-yaml -> 3.31.3
+|    +--- io.quarkus:quarkus-core:3.31.3 (*)
++--- io.quarkus:quarkus-junit5 -> 3.31.3
+|    \--- io.quarkus:quarkus-junit:3.31.3
+|         +--- io.quarkus:quarkus-bootstrap-core:3.31.3
+|         |    +--- io.quarkus:quarkus-classloader-commons:3.31.3
+|         |    +--- io.quarkus:quarkus-registry:3.31.3
+|         |    +--- io.quarkus:quarkus-bootstrap-app-model:3.31.3
+|         |    |    +--- io.quarkus:quarkus-fs-util:1.3.0
+|         |    +--- io.quarkus:quarkus-bootstrap-json:3.31.3
+|         +--- io.quarkus:quarkus-test-common:3.31.3
+|         |    +--- io.quarkus:quarkus-core-deployment:3.31.3
+|         |    |    +--- io.quarkus:quarkus-classloader-commons:3.31.3
+|         |    |    +--- io.quarkus:quarkus-development-mode-spi:3.31.3 (*)
+|         |    |    +--- io.quarkus:quarkus-hibernate-validator-spi:3.31.3
+|         |    |    |    +--- io.quarkus:quarkus-builder:3.31.3
+|         |    |    |    |    +--- io.quarkus:quarkus-bootstrap-json:3.31.3
+|         |    |    +--- io.quarkus:quarkus-class-change-agent:3.31.3
+|         |    |    +--- io.quarkus:quarkus-bootstrap-core:3.31.3 (*)
+|         |    |    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|         |    |    +--- io.quarkus:quarkus-builder:3.31.3 (*)
+|         |    +--- io.quarkus:quarkus-bootstrap-maven-resolver:3.31.3
+|         |    |    +--- io.quarkus:quarkus-classloader-commons:3.31.3
+|         |    |    +--- io.quarkus:quarkus-bootstrap-app-model:3.31.3 (*)
+|         |    |    +--- io.quarkus:quarkus-fs-util:1.3.0
+|         |    |    +--- io.quarkus:quarkus-bootstrap-maven4-resolver:3.31.3
+|         |    +--- io.quarkus:quarkus-bootstrap-gradle-resolver:3.31.3
+|         |    |    +--- io.quarkus:quarkus-bootstrap-app-model:3.31.3 (*)
+|         +--- io.quarkus:quarkus-junit-config:3.31.3
+|         |    +--- io.quarkus:quarkus-core:3.31.3 (*)
+|         |    \--- io.quarkus:quarkus-core-deployment:3.31.3 (*)
+|         \--- io.quarkus:quarkus-core:3.31.3 (*)
+FAILURE: Build failed with an exception.
+* What went wrong:
+Execution failed for task ':client:dependencies'.
+> Could not resolve all dependencies for configuration ':client:quarkusDevBaseRuntimeClasspathConfigurationCopy1'.
+   > Could not find io.quarkus:quarkus-kotlinx-serialization:3.31.3.
+     Required by:
+         project ':client'
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights from a Build Scan (powered by Develocity).
+> Get more help at https://help.gradle.org.
+BUILD FAILED in 1s

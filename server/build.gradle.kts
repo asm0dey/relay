@@ -11,7 +11,7 @@ dependencies {
     implementation("io.quarkus:quarkus-kotlin")
     implementation("io.quarkus:quarkus-arc")
     implementation("io.quarkus:quarkus-websockets")
-    implementation("io.quarkus:quarkus-jackson")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
     implementation("io.quarkus:quarkus-vertx")
     implementation("io.quarkus:quarkus-reactive-routes")
     implementation("io.quarkus:quarkus-config-yaml")
@@ -25,8 +25,6 @@ dependencies {
     testImplementation("org.mockito:mockito-core:5.12.0")
     testImplementation("org.mockito:mockito-junit-jupiter:5.12.0")
     testImplementation("org.awaitility:awaitility:4.3.0")
-    testImplementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.17.0")
-    testImplementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.17.0")
     testImplementation("com.squareup.okhttp3:okhttp:4.12.0")
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
 }

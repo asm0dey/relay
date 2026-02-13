@@ -1,25 +1,16 @@
 package org.relay.shared.protocol
-
-import com.fasterxml.jackson.annotation.JsonProperty
+import kotlinx.serialization.Serializable
 
 /**
  * Payload for WebSocket frame messages.
  * Used for proxying WebSocket messages between external client and local application.
  */
+@Serializable
 data class WebSocketFramePayload(
-    @field:JsonProperty("type")
     val type: String,  // TEXT, BINARY, CLOSE, PING, PONG
-
-    @field:JsonProperty("data")
     val data: String? = null,  // Base64 encoded for BINARY, plain text for TEXT
-
-    @field:JsonProperty("isBinary")
     val isBinary: Boolean = false,
-
-    @field:JsonProperty("closeCode")
     val closeCode: Int? = null,
-
-    @field:JsonProperty("closeReason")
     val closeReason: String? = null
 ) {
     companion object {
@@ -35,5 +26,4 @@ data class WebSocketFramePayload(
         const val CLOSE_PROTOCOL_ERROR = 1002
         const val CLOSE_INTERNAL_ERROR = 1011
     }
-
 }

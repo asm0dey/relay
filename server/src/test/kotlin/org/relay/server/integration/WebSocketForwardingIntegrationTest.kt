@@ -1,13 +1,11 @@
 package org.relay.server.integration
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
-import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import io.quarkus.test.common.http.TestHTTPResource
 import io.quarkus.test.junit.QuarkusTest
 import io.quarkus.test.junit.TestProfile
 import jakarta.inject.Inject
 import jakarta.websocket.*
+import kotlinx.serialization.json.JsonObject
 import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.*
@@ -34,10 +32,6 @@ class WebSocketForwardingIntegrationTest {
     @Inject
     lateinit var tunnelRegistry: TunnelRegistry
 
-    private val mapper = ObjectMapper()
-        .registerModule(JavaTimeModule())
-        .registerKotlinModule()
-
     private val sessions = mutableListOf<Session>()
     private var subdomain: String? = null
     private lateinit var tunnelClient: TestTunnelWsClient
@@ -52,8 +46,8 @@ class WebSocketForwardingIntegrationTest {
         tunnelClient = wsClient
         
         await().atMost(Duration.ofSeconds(10)).until { tunnelClient.messages.isNotEmpty() }
-        val envelope = mapper.readValue(tunnelClient.messages.first(), Envelope::class.java)
-        subdomain = envelope.payload.get("subdomain").asText()
+        val envelope = tunnelClient.messages.first().toEnvelope()
+        subdomain = (envelope.payload as JsonObject)["subdomain"].toString().replace("\"", "")
         tunnelClient.messages.clear()
         
         logger.info("Tunnel established for subdomain: {}", subdomain)
@@ -102,10 +96,10 @@ class WebSocketForwardingIntegrationTest {
         // 2. Tunnel client should receive Upgrade REQUEST
         logger.info("Waiting for upgrade request on tunnel client...")
         await().atMost(Duration.ofSeconds(10)).until { tunnelClient.messages.isNotEmpty() }
-        val upgradeEnvelope = mapper.readValue(tunnelClient.messages.first(), Envelope::class.java)
+        val upgradeEnvelope = tunnelClient.messages.first().toEnvelope()
         assertEquals(MessageType.REQUEST, upgradeEnvelope.type)
         
-        val requestPayload = mapper.treeToValue(upgradeEnvelope.payload, RequestPayload::class.java)
+        val requestPayload = upgradeEnvelope.payload.toObject<RequestPayload>()
         assertTrue(requestPayload.webSocketUpgrade)
         
         // 3. Tunnel client sends back RESPONSE (Upgrade success)
@@ -114,10 +108,10 @@ class WebSocketForwardingIntegrationTest {
         val responseEnvelope = Envelope(
             correlationId = upgradeEnvelope.correlationId,
             type = MessageType.RESPONSE,
-            payload = mapper.valueToTree(responsePayload)
+            payload = responsePayload.toJsonElement()
         )
         val tunnelSession = sessions.first { it.requestURI.path.endsWith("/ws") }
-        tunnelSession.basicRemote.sendText(mapper.writeValueAsString(responseEnvelope))
+        tunnelSession.basicRemote.sendText(responseEnvelope.toJson())
         
         tunnelClient.messages.clear()
 
@@ -127,8 +121,8 @@ class WebSocketForwardingIntegrationTest {
         externalSession.basicRemote.sendText(testMessage)
         
         await().atMost(Duration.ofSeconds(10)).until { tunnelClient.messages.isNotEmpty() }
-        val frameEnvelope = mapper.readValue(tunnelClient.messages.first(), Envelope::class.java)
-        val framePayload = mapper.treeToValue(frameEnvelope.payload, WebSocketFramePayload::class.java)
+        val frameEnvelope = tunnelClient.messages.first().toEnvelope()
+        val framePayload = frameEnvelope.payload.toObject<WebSocketFramePayload>()
         assertEquals(WebSocketFramePayload.TYPE_TEXT, framePayload.type)
         assertEquals(testMessage, framePayload.data)
         
@@ -141,9 +135,9 @@ class WebSocketForwardingIntegrationTest {
         val replyEnvelope = Envelope(
             correlationId = upgradeEnvelope.correlationId,
             type = MessageType.RESPONSE,
-            payload = mapper.valueToTree(replyFrame)
+            payload = replyFrame.toJsonElement()
         )
-        tunnelSession.basicRemote.sendText(mapper.writeValueAsString(replyEnvelope))
+        tunnelSession.basicRemote.sendText(replyEnvelope.toJson())
         
         await().atMost(Duration.ofSeconds(10)).until { externalClient.messages.isNotEmpty() }
         assertEquals(replyMessage, externalClient.messages.first())

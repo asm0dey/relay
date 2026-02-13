@@ -1,6 +1,5 @@
 package org.relay.server.routing
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.Timer
 import io.quarkus.vertx.web.Route
@@ -13,10 +12,7 @@ import org.relay.server.config.RelayConfig
 import org.relay.server.tunnel.PendingRequest
 import org.relay.server.tunnel.RequestCancelledException
 import org.relay.server.tunnel.TunnelRegistry
-import org.relay.shared.protocol.Envelope
-import org.relay.shared.protocol.MessageType
-import org.relay.shared.protocol.RequestPayload
-import org.relay.shared.protocol.ResponsePayload
+import org.relay.shared.protocol.*
 import org.slf4j.LoggerFactory
 import java.util.Base64
 import java.util.UUID
@@ -36,7 +32,6 @@ import java.util.concurrent.TimeUnit
 class SubdomainRoutingHandler @Inject constructor(
     private val tunnelRegistry: TunnelRegistry,
     private val relayConfig: RelayConfig,
-    private val objectMapper: ObjectMapper,
     private val meterRegistry: MeterRegistry
 ) {
 
@@ -472,7 +467,7 @@ class SubdomainRoutingHandler @Inject constructor(
 
         try {
             // Serialize and send envelope
-            val envelopeJson = objectMapper.writeValueAsString(envelope)
+            val envelopeJson = envelope.toJson()
 
             tunnel.session.asyncRemote.sendText(envelopeJson) { sendResult ->
                 if (!sendResult.isOK) {
@@ -548,12 +543,10 @@ class SubdomainRoutingHandler @Inject constructor(
         correlationId: String,
         requestPayload: RequestPayload
     ): Envelope {
-        val payloadNode = objectMapper.valueToTree<com.fasterxml.jackson.databind.JsonNode>(requestPayload)
-
         return Envelope(
             correlationId = correlationId,
             type = MessageType.REQUEST,
-            payload = payloadNode
+            payload = requestPayload.toJsonElement()
         )
     }
 

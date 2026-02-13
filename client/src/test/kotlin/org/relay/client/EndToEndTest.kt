@@ -1,15 +1,12 @@
 package org.relay.client
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.relay.client.command.ConnectionParameters
 import org.relay.client.command.TunnelCommandInterface
 import org.relay.client.command.TunnelCommandValidator
-import org.relay.shared.protocol.ControlPayload
-import org.relay.shared.protocol.Envelope
-import org.relay.shared.protocol.MessageType
+import org.relay.shared.protocol.*
 import picocli.CommandLine
 import java.util.concurrent.Callable
 
@@ -27,11 +24,6 @@ import java.util.concurrent.Callable
  * requiring an actual WebSocket server connection.
  */
 class EndToEndTest {
-
-    private val objectMapper = ObjectMapper().apply {
-        // Configure ObjectMapper like the application does
-        findAndRegisterModules()
-    }
 
     @BeforeEach
     fun clearSystemProperties() {
@@ -201,22 +193,19 @@ class EndToEndTest {
         val envelope = Envelope(
             correlationId = "test-001",
             type = MessageType.CONTROL,
-            payload = objectMapper.valueToTree(controlPayload)
+            payload = controlPayload.toJsonElement()
         )
 
         // When: Serialize to JSON
-        val json = objectMapper.writeValueAsString(envelope)
+        val json = envelope.toJson()
 
         // Then: Should be able to deserialize back
-        val deserializedEnvelope = objectMapper.readValue(json, Envelope::class.java)
+        val deserializedEnvelope = json.toEnvelope()
         assertEquals(envelope.correlationId, deserializedEnvelope.correlationId)
         assertEquals(envelope.type, deserializedEnvelope.type)
 
         // Parse the control payload
-        val deserializedControl = objectMapper.treeToValue(
-            deserializedEnvelope.payload,
-            ControlPayload::class.java
-        )
+        val deserializedControl = deserializedEnvelope.payload.toObject<ControlPayload>()
 
         assertEquals(ControlPayload.ACTION_REGISTERED, deserializedControl.action)
         assertEquals("test-subdomain-123", deserializedControl.subdomain)

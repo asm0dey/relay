@@ -1,13 +1,11 @@
 package org.relay.server.integration
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
-import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import io.quarkus.test.common.http.TestHTTPResource
 import io.quarkus.test.junit.QuarkusTest
 import io.quarkus.test.junit.TestProfile
 import jakarta.inject.Inject
 import jakarta.websocket.*
+import kotlinx.serialization.json.JsonObject
 import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.*
@@ -39,10 +37,6 @@ class ResilienceIntegrationTest {
     @TestHTTPResource
     var baseUrl: URL? = null
 
-    private val mapper = ObjectMapper()
-        .registerModule(JavaTimeModule())
-        .registerKotlinModule()
-
     private val sessions = mutableListOf<Session>()
     private var subdomain: String? = null
     private lateinit var tunnelClient: TestWsClient
@@ -65,7 +59,7 @@ class ResilienceIntegrationTest {
         // 1. Initial connection
         val (session1, client1) = connectTunnel("test-secret-key")
         await().atMost(Duration.ofSeconds(5)).until { client1.messages.isNotEmpty() }
-        val sub1 = mapper.readValue(client1.messages.first(), Envelope::class.java).payload.get("subdomain").asText()
+        val sub1 = (client1.messages.first().toEnvelope().payload as JsonObject)["subdomain"].toString().replace("\"", "")
         
         // 2. Disconnect
         session1.close()
@@ -74,7 +68,7 @@ class ResilienceIntegrationTest {
         // 3. Reconnect - should get a new subdomain (or same, but registration should succeed)
         val (session2, client2) = connectTunnel("test-secret-key")
         await().atMost(Duration.ofSeconds(5)).until { client2.messages.isNotEmpty() }
-        val sub2 = mapper.readValue(client2.messages.first(), Envelope::class.java).payload.get("subdomain").asText()
+        val sub2 = (client2.messages.first().toEnvelope().payload as JsonObject)["subdomain"].toString().replace("\"", "")
         
         assertNotNull(sub2)
         assertTrue(tunnelRegistry.hasTunnel(sub2))
@@ -85,7 +79,7 @@ class ResilienceIntegrationTest {
         // 1. Connect a tunnel
         val (session, client) = connectTunnel("test-secret-key")
         await().atMost(Duration.ofSeconds(5)).until { client.messages.isNotEmpty() }
-        val sub = mapper.readValue(client.messages.first(), Envelope::class.java).payload.get("subdomain").asText()
+        val sub = (client.messages.first().toEnvelope().payload as JsonObject)["subdomain"].toString().replace("\"", "")
         
         assertTrue(session.isOpen)
         assertTrue(tunnelRegistry.hasTunnel(sub))

@@ -1,21 +1,18 @@
 package org.relay.server.integration
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
-import com.fasterxml.jackson.module.kotlin.KotlinModule
 import io.quarkus.test.common.http.TestHTTPResource
 import io.quarkus.test.junit.QuarkusTest
 import io.quarkus.test.junit.TestProfile
 import jakarta.inject.Inject
 import jakarta.websocket.*
+import kotlinx.serialization.json.JsonObject
 import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.relay.server.tunnel.TunnelRegistry
-import org.relay.shared.protocol.Envelope
-import org.relay.shared.protocol.MessageType
+import org.relay.shared.protocol.*
 import java.net.URI
 import java.net.URL
 import java.time.Duration
@@ -28,9 +25,6 @@ class AuthenticationIntegrationTest {
     @Inject
     lateinit var tunnelRegistry: TunnelRegistry
 
-    private val mapper = ObjectMapper()
-        .registerModule(KotlinModule.Builder().build())
-        .registerModule(JavaTimeModule())
     private val sessions = mutableListOf<Session>()
 
     companion object {
@@ -63,9 +57,9 @@ class AuthenticationIntegrationTest {
         assertNotNull(envelope, "Envelope should not be null for message: $json")
         assertEquals(MessageType.CONTROL, envelope!!.type)
         
-        val payload = envelope.payload
-        assertEquals("REGISTERED", payload.get("action").asText())
-        val subdomain = payload.get("subdomain").asText()
+        val payload = envelope.payload as JsonObject
+        assertEquals("REGISTERED", payload["action"].toString().replace("\"", ""))
+        val subdomain = payload["subdomain"].toString().replace("\"", "")
         assertTrue(subdomain.isNotBlank())
         
         // Verify tunnel is registered
@@ -122,7 +116,7 @@ class AuthenticationIntegrationTest {
 
     private fun parseEnvelope(json: String): Envelope? {
         return try {
-            mapper.readValue(json, Envelope::class.java)
+            json.toEnvelope()
         } catch (_: Exception) {
             null
         }
@@ -131,7 +125,8 @@ class AuthenticationIntegrationTest {
     private fun extractSubdomain(json: String): String? {
         val envelope = parseEnvelope(json) ?: return null
         if (envelope.type != MessageType.CONTROL) return null
-        return envelope.payload.get("subdomain")?.asText()
+        val payload = envelope.payload as? JsonObject
+        return payload?.get("subdomain")?.toString()?.replace("\"", "")
     }
 
     @ClientEndpoint

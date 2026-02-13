@@ -1,12 +1,11 @@
 package org.relay.shared.protocol
-
-import com.fasterxml.jackson.annotation.JsonProperty
+import kotlinx.serialization.Serializable
 
 /**
  * Enumeration of error codes used in ErrorPayload.
  */
+@Serializable
 enum class ErrorCode(
-    @field:JsonProperty("code")
     val code: String
 ) {
     TIMEOUT("TIMEOUT"),

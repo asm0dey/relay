@@ -1,10 +1,9 @@
 package org.relay.client.websocket
 
-import com.fasterxml.jackson.databind.JsonNode
-import com.fasterxml.jackson.databind.ObjectMapper
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.inject.Inject
 import jakarta.websocket.*
+import kotlinx.serialization.json.*
 import org.relay.client.config.ClientConfig
 import org.relay.client.proxy.LocalHttpProxy
 import org.relay.client.retry.ReconnectionHandler
@@ -24,8 +23,7 @@ class WebSocketClientEndpoint @Inject constructor(
     private val clientConfig: ClientConfig,
     private val reconnectionHandler: ReconnectionHandler,
     private val localHttpProxy: LocalHttpProxy,
-    private val localWebSocketProxy: LocalWebSocketProxy,
-    private val objectMapper: ObjectMapper
+    private val localWebSocketProxy: LocalWebSocketProxy
 ) {
 
     private val logger = LoggerFactory.getLogger(WebSocketClientEndpoint::class.java)
@@ -90,7 +88,7 @@ class WebSocketClientEndpoint @Inject constructor(
             session.id, message.length, message.take(200))
 
         try {
-            val envelope = objectMapper.readValue(message, Envelope::class.java)
+            val envelope = message.toEnvelope()
             handleEnvelope(envelope)
         } catch (e: Exception) {
             logger.error("Failed to parse message: {}", message, e)
@@ -151,8 +149,8 @@ class WebSocketClientEndpoint @Inject constructor(
         // First check if this is a WebSocket frame message
         try {
             val payload = envelope.payload
-            if (payload.has("type") && (payload.has("data") || payload.has("closeCode"))) {
-                val framePayload = objectMapper.treeToValue(envelope.payload, WebSocketFramePayload::class.java)
+            if (payload is JsonObject && payload.containsKey("type") && (payload.containsKey("data") || payload.containsKey("closeCode"))) {
+                val framePayload = envelope.payload.toObject<WebSocketFramePayload>()
                 logger.debug("Received WebSocket frame from server: correlationId={}, type={}", 
                     envelope.correlationId, framePayload.type)
                 // This is a WebSocket frame from the server (external -> local)
@@ -164,7 +162,7 @@ class WebSocketClientEndpoint @Inject constructor(
         }
 
         val requestPayload = try {
-            objectMapper.treeToValue(envelope.payload, RequestPayload::class.java)
+            envelope.payload.toObject<RequestPayload>()
         } catch (e: Exception) {
             logger.error("Failed to parse REQUEST payload", e)
             sendErrorResponse(envelope.correlationId, 400, "Bad Request: Invalid payload")
@@ -234,10 +232,10 @@ class WebSocketClientEndpoint @Inject constructor(
             val envelope = Envelope(
                 correlationId = correlationId,
                 type = MessageType.RESPONSE,
-                payload = objectMapper.valueToTree(framePayload)
+                payload = framePayload.toJsonElement()
             )
 
-            val message = objectMapper.writeValueAsString(envelope)
+            val message = envelope.toJson()
             session?.asyncRemote?.sendText(message)
         } catch (e: Exception) {
             logger.error("Failed to send WebSocket frame to server: correlationId={}", correlationId, e)
@@ -249,7 +247,7 @@ class WebSocketClientEndpoint @Inject constructor(
      */
     private fun handleControlMessage(envelope: Envelope) {
         val controlPayload = try {
-            objectMapper.treeToValue(envelope.payload, ControlPayload::class.java)
+            envelope.payload.toObject<ControlPayload>()
         } catch (e: Exception) {
             logger.error("Failed to parse CONTROL payload", e)
             return
@@ -299,7 +297,7 @@ class WebSocketClientEndpoint @Inject constructor(
      */
     private fun handleErrorMessage(envelope: Envelope) {
         val errorPayload = try {
-            objectMapper.treeToValue(envelope.payload, ErrorPayload::class.java)
+            envelope.payload.toObject<ErrorPayload>()
         } catch (e: Exception) {
             logger.error("Failed to parse ERROR payload: {}", envelope.payload)
             return
@@ -313,7 +311,7 @@ class WebSocketClientEndpoint @Inject constructor(
      * Sends a registration request to the server with the secret key.
      */
     private fun sendRegistrationRequest() {
-        val registrationPayload = objectMapper.createObjectNode().apply {
+        val registrationPayload = buildJsonObject {
             put("action", ControlPayload.ACTION_REGISTER)
             put("secretKey", clientConfig.secretKey().orElse(""))
             if (clientConfig.subdomain().isPresent) {
@@ -339,7 +337,7 @@ class WebSocketClientEndpoint @Inject constructor(
         val envelope = Envelope(
             correlationId = correlationId,
             type = MessageType.RESPONSE,
-            payload = objectMapper.valueToTree(responsePayload)
+            payload = responsePayload.toJsonElement()
         )
 
         sendMessage(envelope)
@@ -365,7 +363,7 @@ class WebSocketClientEndpoint @Inject constructor(
         val currentSession = session
         return if (currentSession != null && currentSession.isOpen) {
             try {
-                val message = objectMapper.writeValueAsString(envelope)
+                val message = envelope.toJson()
                 logger.debug("Sending message to server: type={}, correlationId={}, size={}", 
                     envelope.type, envelope.correlationId, message.length)
                 currentSession.asyncRemote.sendText(message)

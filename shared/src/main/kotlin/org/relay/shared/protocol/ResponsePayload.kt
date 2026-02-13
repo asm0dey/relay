@@ -1,17 +1,12 @@
 package org.relay.shared.protocol
-
-import com.fasterxml.jackson.annotation.JsonProperty
+import kotlinx.serialization.Serializable
 
 /**
  * Payload for RESPONSE messages containing HTTP response data.
  */
+@Serializable
 data class ResponsePayload(
-    @field:JsonProperty("statusCode")
     val statusCode: Int,
-
-    @field:JsonProperty("headers")
     val headers: Map<String, String>,
-
-    @field:JsonProperty("body")
     val body: String? = null
 )

@@ -1,14 +1,11 @@
 package org.relay.shared.protocol
-
-import com.fasterxml.jackson.annotation.JsonProperty
+import kotlinx.serialization.Serializable
 
 /**
  * Payload for ERROR messages containing error details.
  */
+@Serializable
 data class ErrorPayload(
-    @field:JsonProperty("code")
     val code: ErrorCode,
-
-    @field:JsonProperty("message")
     val message: String
 )

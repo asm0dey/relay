@@ -1,43 +1,28 @@
 package org.relay.shared.protocol
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.databind.SerializationFeature
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
-import com.fasterxml.jackson.module.kotlin.KotlinModule
-import org.junit.jupiter.api.Assertions.*
-import org.junit.jupiter.api.BeforeEach
+import kotlinx.serialization.encodeToString
 import org.junit.jupiter.api.Test
 import java.time.Instant
 import java.util.Base64
+import kotlin.test.assertEquals
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class ProtocolMessageTest {
 
-    private lateinit var objectMapper: ObjectMapper
-
-    @BeforeEach
-    fun setup() {
-        objectMapper = ObjectMapper()
-            .registerModule(KotlinModule.Builder().build())
-            .registerModule(JavaTimeModule())
-            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
-    }
-
     @Test
     fun `MessageType serialization - all enum values serialize correctly to strings`() {
-        // Test that each MessageType serializes to its string value
         MessageType.entries.forEach { messageType ->
-            val json = objectMapper.writeValueAsString(messageType)
-            // Should serialize as the string value, not the enum name
+            val json = RelayJson.encodeToString(messageType)
             assertEquals("\"${messageType.type}\"", json)
         }
     }
 
     @Test
     fun `MessageType deserialization - all string values deserialize correctly`() {
-        // Test that each string value deserializes to the correct MessageType
         MessageType.entries.forEach { messageType ->
             val json = "\"${messageType.type}\""
-            val deserialized = objectMapper.readValue(json, MessageType::class.java)
+            val deserialized = RelayJson.decodeFromString<MessageType>(json)
             assertEquals(messageType, deserialized)
         }
     }
@@ -53,9 +38,7 @@ class ProtocolMessageTest {
 
     @Test
     fun `Envelope serialization - round-trip JSON serialization and deserialization`() {
-        val payload = objectMapper.valueToTree<com.fasterxml.jackson.databind.JsonNode>(
-            mapOf("key" to "value", "number" to 42)
-        )
+        val payload = WebSocketFramePayload("","x", false, null, null).toJsonElement()
         val envelope = Envelope(
             correlationId = "test-correlation-123",
             type = MessageType.REQUEST,
@@ -63,8 +46,8 @@ class ProtocolMessageTest {
             payload = payload
         )
 
-        val json = objectMapper.writeValueAsString(envelope)
-        val deserialized = objectMapper.readValue(json, Envelope::class.java)
+        val json = envelope.toJson()
+        val deserialized = json.toEnvelope()
 
         assertEquals(envelope.correlationId, deserialized.correlationId)
         assertEquals(envelope.type, deserialized.type)
@@ -85,17 +68,16 @@ class ProtocolMessageTest {
             body = base64Body
         )
 
-        val json = objectMapper.writeValueAsString(requestPayload)
-        val deserialized = objectMapper.readValue(json, RequestPayload::class.java)
+        val json = RelayJson.encodeToString(requestPayload)
+        val deserialized = RelayJson.decodeFromString<RequestPayload>(json)
 
         assertEquals(requestPayload.method, deserialized.method)
         assertEquals(requestPayload.path, deserialized.path)
-        assertEquals(requestPayload.query, deserialized.query)
+        assertEquals(requestPayload.query as Any?, deserialized.query as Any?)
         assertEquals(requestPayload.headers, deserialized.headers)
-        assertEquals(requestPayload.body, deserialized.body)
+        assertEquals(requestPayload.body as Any?, deserialized.body as Any?)
         
-        // Verify the body is correctly base64 encoded
-        val decodedBody = String(Base64.getDecoder().decode(deserialized.body))
+        val decodedBody = String(Base64.getDecoder().decode(deserialized.body!!))
         assertEquals(originalBody, decodedBody)
     }
 
@@ -109,8 +91,8 @@ class ProtocolMessageTest {
             body = null
         )
 
-        val json = objectMapper.writeValueAsString(requestPayload)
-        val deserialized = objectMapper.readValue(json, RequestPayload::class.java)
+        val json = RelayJson.encodeToString(requestPayload)
+        val deserialized = RelayJson.decodeFromString<RequestPayload>(json)
 
         assertEquals("GET", deserialized.method)
         assertEquals("/api/simple", deserialized.path)
@@ -126,12 +108,12 @@ class ProtocolMessageTest {
             body = "{\"success\": true}"
         )
 
-        val json = objectMapper.writeValueAsString(responsePayload)
-        val deserialized = objectMapper.readValue(json, ResponsePayload::class.java)
+        val json = RelayJson.encodeToString(responsePayload)
+        val deserialized = RelayJson.decodeFromString<ResponsePayload>(json)
 
-        assertEquals(responsePayload.statusCode, deserialized.statusCode)
+        assertEquals(responsePayload.statusCode as Any, deserialized.statusCode as Any)
         assertEquals(responsePayload.headers, deserialized.headers)
-        assertEquals(responsePayload.body, deserialized.body)
+        assertEquals(responsePayload.body as Any?, deserialized.body as Any?)
     }
 
     @Test
@@ -142,10 +124,10 @@ class ProtocolMessageTest {
             body = null
         )
 
-        val json = objectMapper.writeValueAsString(responsePayload)
-        val deserialized = objectMapper.readValue(json, ResponsePayload::class.java)
+        val json = RelayJson.encodeToString(responsePayload)
+        val deserialized = RelayJson.decodeFromString<ResponsePayload>(json)
 
-        assertEquals(204, deserialized.statusCode)
+        assertEquals(204 as Any, deserialized.statusCode as Any)
         assertTrue(deserialized.headers.isEmpty())
         assertNull(deserialized.body)
     }
@@ -158,8 +140,8 @@ class ProtocolMessageTest {
                 message = "Test error message for ${errorCode.code}"
             )
 
-            val json = objectMapper.writeValueAsString(errorPayload)
-            val deserialized = objectMapper.readValue(json, ErrorPayload::class.java)
+            val json = RelayJson.encodeToString(errorPayload)
+            val deserialized = RelayJson.decodeFromString<ErrorPayload>(json)
 
             assertEquals(errorCode, deserialized.code)
             assertEquals(errorPayload.message, deserialized.message)
@@ -184,8 +166,8 @@ class ProtocolMessageTest {
             publicUrl = "https://abc123xyz789.relay.example.com"
         )
 
-        val json = objectMapper.writeValueAsString(controlPayload)
-        val deserialized = objectMapper.readValue(json, ControlPayload::class.java)
+        val json = RelayJson.encodeToString(controlPayload)
+        val deserialized = RelayJson.decodeFromString<ControlPayload>(json)
 
         assertEquals(ControlPayload.ACTION_REGISTER, deserialized.action)
         assertEquals("abc123xyz789", deserialized.subdomain)
@@ -207,8 +189,8 @@ class ProtocolMessageTest {
                 publicUrl = null
             )
 
-            val json = objectMapper.writeValueAsString(controlPayload)
-            val deserialized = objectMapper.readValue(json, ControlPayload::class.java)
+            val json = RelayJson.encodeToString(controlPayload)
+            val deserialized = RelayJson.decodeFromString<ControlPayload>(json)
 
             assertEquals(action, deserialized.action)
             assertNull(deserialized.subdomain)
@@ -219,9 +201,7 @@ class ProtocolMessageTest {
     @Test
     fun `Correlation ID matching - correlationId is preserved through serialization`() {
         val correlationId = "corr-12345-abcde-67890"
-        val payload = objectMapper.valueToTree<com.fasterxml.jackson.databind.JsonNode>(
-            mapOf("data" to "test")
-        )
+        val payload = mapOf("data" to "test").toJsonElement()
         val envelope = Envelope(
             correlationId = correlationId,
             type = MessageType.RESPONSE,
@@ -229,41 +209,31 @@ class ProtocolMessageTest {
             payload = payload
         )
 
-        val json = objectMapper.writeValueAsString(envelope)
-        
-        // Verify the correlationId is in the JSON
+        val json = envelope.toJson()
         assertTrue(json.contains("\"correlationId\":\"$correlationId\""))
         
-        val deserialized = objectMapper.readValue(json, Envelope::class.java)
+        val deserialized = json.toEnvelope()
         assertEquals(correlationId, deserialized.correlationId)
     }
 
     @Test
     fun `Timestamp handling - timestamp is set correctly and serialized`() {
         val beforeCreation = Instant.now()
-        
-        val payload = objectMapper.valueToTree<com.fasterxml.jackson.databind.JsonNode>(
-            mapOf("test" to "data")
-        )
+        val payload = mapOf("test" to "data").toJsonElement()
         val envelope = Envelope(
             correlationId = "test-123",
             type = MessageType.CONTROL,
             payload = payload
-            // timestamp uses default value
         )
-        
         val afterCreation = Instant.now()
 
-        // Verify timestamp is between before and after
-        assertTrue(envelope.timestamp.isAfter(beforeCreation) || envelope.timestamp == beforeCreation)
-        assertTrue(envelope.timestamp.isBefore(afterCreation) || envelope.timestamp == afterCreation)
+        assertTrue(envelope.timestamp.toEpochMilli() >= beforeCreation.toEpochMilli())
+        assertTrue(envelope.timestamp.toEpochMilli() <= afterCreation.toEpochMilli())
 
-        val json = objectMapper.writeValueAsString(envelope)
-        val deserialized = objectMapper.readValue(json, Envelope::class.java)
+        val json = envelope.toJson()
+        val deserialized = json.toEnvelope()
 
         assertEquals(envelope.timestamp, deserialized.timestamp)
-        
-        // Verify timestamp is in ISO-8601 format in JSON
         assertTrue(json.contains("\"timestamp\":\""))
     }
 
@@ -279,7 +249,7 @@ class ProtocolMessageTest {
         val requestEnvelope = Envelope(
             correlationId = correlationId,
             type = MessageType.REQUEST,
-            payload = objectMapper.valueToTree(requestPayload)
+            payload = requestPayload.toJsonElement()
         )
 
         val responsePayload = ResponsePayload(
@@ -291,18 +261,16 @@ class ProtocolMessageTest {
         val responseEnvelope = Envelope(
             correlationId = correlationId,
             type = MessageType.RESPONSE,
-            payload = objectMapper.valueToTree(responsePayload)
+            payload = responsePayload.toJsonElement()
         )
 
-        // Both envelopes should have the same correlationId
         assertEquals(requestEnvelope.correlationId, responseEnvelope.correlationId)
         
-        // Serialize and deserialize both
-        val requestJson = objectMapper.writeValueAsString(requestEnvelope)
-        val responseJson = objectMapper.writeValueAsString(responseEnvelope)
+        val requestJson = requestEnvelope.toJson()
+        val responseJson = responseEnvelope.toJson()
         
-        val deserializedRequest = objectMapper.readValue(requestJson, Envelope::class.java)
-        val deserializedResponse = objectMapper.readValue(responseJson, Envelope::class.java)
+        val deserializedRequest = requestJson.toEnvelope()
+        val deserializedResponse = responseJson.toEnvelope()
         
         assertEquals(correlationId, deserializedRequest.correlationId)
         assertEquals(correlationId, deserializedResponse.correlationId)

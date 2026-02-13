@@ -1,6 +1,5 @@
 package org.relay.client.websocket
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.inject.Inject
 import jakarta.websocket.*
@@ -17,8 +16,7 @@ import java.util.concurrent.ConcurrentHashMap
  */
 @ApplicationScoped
 class LocalWebSocketProxy @Inject constructor(
-    private val clientConfig: ClientConfig,
-    private val objectMapper: ObjectMapper
+    private val clientConfig: ClientConfig
 ) : java.io.Closeable {
 
     private val logger = LoggerFactory.getLogger(LocalWebSocketProxy::class.java)

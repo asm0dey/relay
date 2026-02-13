@@ -1,12 +1,11 @@
 package org.relay.shared.protocol
-
-import com.fasterxml.jackson.annotation.JsonProperty
+import kotlinx.serialization.Serializable
 
 /**
  * Enumeration of message types used in the Relay protocol.
  */
+@Serializable
 enum class MessageType(
-    @field:JsonProperty("type")
     val type: String
 ) {
     REQUEST("REQUEST"),

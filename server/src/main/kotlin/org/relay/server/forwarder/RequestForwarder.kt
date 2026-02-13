@@ -1,6 +1,5 @@
 package org.relay.server.forwarder
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.Timer
 import jakarta.enterprise.context.ApplicationScoped
@@ -9,10 +8,7 @@ import org.relay.server.config.RelayConfig
 import org.relay.server.tunnel.PendingRequest
 import org.relay.server.tunnel.RequestCancelledException
 import org.relay.server.tunnel.TunnelRegistry
-import org.relay.shared.protocol.Envelope
-import org.relay.shared.protocol.MessageType
-import org.relay.shared.protocol.RequestPayload
-import org.relay.shared.protocol.ResponsePayload
+import org.relay.shared.protocol.*
 import org.slf4j.LoggerFactory
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
@@ -27,7 +23,6 @@ import java.util.concurrent.TimeUnit
 class RequestForwarder @Inject constructor(
     private val tunnelRegistry: TunnelRegistry,
     private val relayConfig: RelayConfig,
-    private val objectMapper: ObjectMapper,
     private val meterRegistry: MeterRegistry
 ) {
 
@@ -95,7 +90,7 @@ class RequestForwarder @Inject constructor(
 
             // Create and send the request envelope
             val envelope = createRequestEnvelope(correlationId, requestPayload)
-            val envelopeJson = objectMapper.writeValueAsString(envelope)
+            val envelopeJson = envelope.toJson()
 
             // Create future for response
             val responseFuture = CompletableFuture<ResponsePayload>()
@@ -206,12 +201,10 @@ class RequestForwarder @Inject constructor(
         correlationId: String,
         requestPayload: RequestPayload
     ): Envelope {
-        val payloadNode = objectMapper.valueToTree<com.fasterxml.jackson.databind.JsonNode>(requestPayload)
-
         return Envelope(
             correlationId = correlationId,
             type = MessageType.REQUEST,
-            payload = payloadNode
+            payload = requestPayload.toJsonElement()
         )
     }
 

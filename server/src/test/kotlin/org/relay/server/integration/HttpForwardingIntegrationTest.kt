@@ -1,13 +1,11 @@
 package org.relay.server.integration
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
-import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import io.quarkus.test.common.http.TestHTTPResource
 import io.quarkus.test.junit.QuarkusTest
 import io.quarkus.test.junit.TestProfile
 import jakarta.inject.Inject
 import jakarta.websocket.*
+import kotlinx.serialization.json.JsonObject
 import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.*
@@ -37,9 +35,6 @@ class HttpForwardingIntegrationTest {
 
     @TestHTTPResource
     var baseUrl: URL? = null
-    private val mapper = ObjectMapper()
-        .registerModule(JavaTimeModule())
-        .registerKotlinModule()
     
     private val httpClient = HttpClient.newBuilder()
         .connectTimeout(Duration.ofSeconds(2))
@@ -63,8 +58,8 @@ class HttpForwardingIntegrationTest {
         client = wsClient
         
         await().atMost(Duration.ofSeconds(5)).until { client.messages.isNotEmpty() }
-        val envelope = mapper.readValue(client.messages.first(), Envelope::class.java)
-        subdomain = envelope.payload.get("subdomain").asText()
+        val envelope = client.messages.first().toEnvelope()
+        subdomain = (envelope.payload as JsonObject)["subdomain"].toString().replace("\"", "")
         
         // Clear registration message for clean test state
         client.messages.clear()
@@ -90,10 +85,10 @@ class HttpForwardingIntegrationTest {
 
         // 2. Client should receive REQUEST message
         await().atMost(Duration.ofSeconds(5)).until { client.messages.isNotEmpty() }
-        val requestEnvelope = mapper.readValue(client.messages.first(), Envelope::class.java)
+        val requestEnvelope = client.messages.first().toEnvelope()
         assertEquals(MessageType.REQUEST, requestEnvelope.type)
         
-        val requestPayload = mapper.treeToValue(requestEnvelope.payload, RequestPayload::class.java)
+        val requestPayload = requestEnvelope.payload.toObject<RequestPayload>()
         assertEquals("GET", requestPayload.method)
         assertEquals("/api/test", requestPayload.path)
         assertEquals("bar", requestPayload.query?.get("foo"))
@@ -107,10 +102,10 @@ class HttpForwardingIntegrationTest {
         val responseEnvelope = Envelope(
             correlationId = requestEnvelope.correlationId,
             type = MessageType.RESPONSE,
-            payload = mapper.valueToTree(responsePayload)
+            payload = responsePayload.toJsonElement()
         )
         
-        sessions.first().basicRemote.sendText(mapper.writeValueAsString(responseEnvelope))
+        sessions.first().basicRemote.sendText(responseEnvelope.toJson())
 
         // 4. Server should return the response to the original HTTP requester
         val response = responseFuture.get()
@@ -132,8 +127,8 @@ class HttpForwardingIntegrationTest {
         val responseFuture = httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
 
         await().atMost(Duration.ofSeconds(5)).until { client.messages.isNotEmpty() }
-        val requestEnvelope = mapper.readValue(client.messages.first(), Envelope::class.java)
-        val requestPayload = mapper.treeToValue(requestEnvelope.payload, RequestPayload::class.java)
+        val requestEnvelope = client.messages.first().toEnvelope()
+        val requestPayload = requestEnvelope.payload.toObject<RequestPayload>()
         
         assertEquals("POST", requestPayload.method)
         assertEquals(requestBody, requestPayload.body)
@@ -142,9 +137,9 @@ class HttpForwardingIntegrationTest {
         val responseEnvelope = Envelope(
             correlationId = requestEnvelope.correlationId,
             type = MessageType.RESPONSE,
-            payload = mapper.valueToTree(responsePayload)
+            payload = responsePayload.toJsonElement()
         )
-        sessions.first().basicRemote.sendText(mapper.writeValueAsString(responseEnvelope))
+        sessions.first().basicRemote.sendText(responseEnvelope.toJson())
 
         val response = responseFuture.get()
         assertEquals(201, response.statusCode())

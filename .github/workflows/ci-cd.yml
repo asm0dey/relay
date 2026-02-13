@@ -62,7 +62,7 @@ jobs:
             # Cross-compilation for ARM64 on x64 runner might be tricky with Quarkus directly if not using container build
             # For now, let's assume we use Quarkus container build for ARM64 or have enough setup.
             # Quarkus supports -Dquarkus.native.container-build=true
-            ./gradlew :server:build -Dquarkus.package.type=native -Dquarkus.native.container-build=true -Dquarkus.native.builder-image=bellsoft/liberica-native-image-kit-container:21-nik-23.1-glibc-aarch64
+            ./gradlew :server:build -Dquarkus.package.type=native -Dquarkus.native.container-build=true -Dquarkus.native.builder-image=bellsoft/liberica-native-image-kit-container:jdk-25-nik-25-glibc
           else
             ./gradlew :server:build -Dquarkus.package.type=native
           fi
@@ -124,11 +124,18 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           cache: 'gradle'
 
+      - name: Fix invalid Windows paths
+        if: matrix.os == 'windows-latest'
+        shell: bash
+        run: |
+          # Remove directories with ':' in name which are invalid on Windows
+          find .claude .codex .gemini -name "*:*" -type d -exec rm -rf {} + || true
+
       - name: Build Native Client
         shell: bash
         run: |
           if [ "${{ matrix.arch }}" = "arm64" ] && [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
-            ./gradlew :client:build -Dquarkus.package.type=native -Dquarkus.native.container-build=true -Dquarkus.native.builder-image=bellsoft/liberica-native-image-kit-container:21-nik-23.1-glibc-aarch64
+            ./gradlew :client:build -Dquarkus.package.type=native -Dquarkus.native.container-build=true -Dquarkus.native.builder-image=bellsoft/liberica-native-image-kit-container:jdk-25-nik-25-musl
           else
             ./gradlew :client:build -Dquarkus.package.type=native
           fi

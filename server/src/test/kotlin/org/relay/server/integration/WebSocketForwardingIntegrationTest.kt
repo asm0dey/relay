@@ -46,8 +46,9 @@ class WebSocketForwardingIntegrationTest {
         tunnelClient = wsClient
         
         await().atMost(Duration.ofSeconds(10)).until { tunnelClient.messages.isNotEmpty() }
-        val envelope = tunnelClient.messages.first().toEnvelope()
-        subdomain = (envelope.payload as JsonObject)["subdomain"].toString().replace("\"", "")
+        val envelope = ProtobufSerializer.decodeEnvelope(tunnelClient.messages.first())
+        val controlPayload = (envelope.payload as Payload.Control).data
+        subdomain = controlPayload.subdomain
         tunnelClient.messages.clear()
         
         logger.info("Tunnel established for subdomain: {}", subdomain)
@@ -96,10 +97,10 @@ class WebSocketForwardingIntegrationTest {
         // 2. Tunnel client should receive Upgrade REQUEST
         logger.info("Waiting for upgrade request on tunnel client...")
         await().atMost(Duration.ofSeconds(10)).until { tunnelClient.messages.isNotEmpty() }
-        val upgradeEnvelope = tunnelClient.messages.first().toEnvelope()
+        val upgradeEnvelope = ProtobufSerializer.decodeEnvelope(tunnelClient.messages.first())
         assertEquals(MessageType.REQUEST, upgradeEnvelope.type)
         
-        val requestPayload = upgradeEnvelope.payload.toObject<RequestPayload>()
+        val requestPayload = (upgradeEnvelope.payload as Payload.Request).data
         assertTrue(requestPayload.webSocketUpgrade)
         
         // 3. Tunnel client sends back RESPONSE (Upgrade success)
@@ -108,10 +109,10 @@ class WebSocketForwardingIntegrationTest {
         val responseEnvelope = Envelope(
             correlationId = upgradeEnvelope.correlationId,
             type = MessageType.RESPONSE,
-            payload = responsePayload.toJsonElement()
+            payload = Payload.Response(responsePayload)
         )
         val tunnelSession = sessions.first { it.requestURI.path.endsWith("/ws") }
-        tunnelSession.basicRemote.sendText(responseEnvelope.toJson())
+        tunnelSession.basicRemote.sendBinary(java.nio.ByteBuffer.wrap(ProtobufSerializer.encodeEnvelope(responseEnvelope)))
         
         tunnelClient.messages.clear()
 
@@ -121,8 +122,8 @@ class WebSocketForwardingIntegrationTest {
         externalSession.basicRemote.sendText(testMessage)
         
         await().atMost(Duration.ofSeconds(10)).until { tunnelClient.messages.isNotEmpty() }
-        val frameEnvelope = tunnelClient.messages.first().toEnvelope()
-        val framePayload = frameEnvelope.payload.toObject<WebSocketFramePayload>()
+        val frameEnvelope = ProtobufSerializer.decodeEnvelope(tunnelClient.messages.first())
+        val framePayload = (frameEnvelope.payload as Payload.WebSocketFrame).data
         assertEquals(WebSocketFramePayload.TYPE_TEXT, framePayload.type)
         assertEquals(testMessage, framePayload.data)
         
@@ -135,9 +136,9 @@ class WebSocketForwardingIntegrationTest {
         val replyEnvelope = Envelope(
             correlationId = upgradeEnvelope.correlationId,
             type = MessageType.RESPONSE,
-            payload = replyFrame.toJsonElement()
+            payload = Payload.WebSocketFrame(replyFrame)
         )
-        tunnelSession.basicRemote.sendText(replyEnvelope.toJson())
+        tunnelSession.basicRemote.sendBinary(java.nio.ByteBuffer.wrap(ProtobufSerializer.encodeEnvelope(replyEnvelope)))
         
         await().atMost(Duration.ofSeconds(10)).until { externalClient.messages.isNotEmpty() }
         assertEquals(replyMessage, externalClient.messages.first())
@@ -170,10 +171,12 @@ class WebSocketForwardingIntegrationTest {
 
     @ClientEndpoint
     class TestTunnelWsClient {
-        val messages = CopyOnWriteArrayList<String>()
-        @OnMessage fun onMessage(message: String) { 
-            LoggerFactory.getLogger(TestTunnelWsClient::class.java).info("Tunnel client received message: {}", message)
-            messages.add(message) 
+        val messages = CopyOnWriteArrayList<ByteArray>()
+        @OnMessage fun onMessage(message: java.nio.ByteBuffer) {
+            val messageBytes = ByteArray(message.remaining())
+            message.get(messageBytes)
+            LoggerFactory.getLogger(TestTunnelWsClient::class.java).info("Tunnel client received binary message: {} bytes", messageBytes.size)
+            messages.add(messageBytes)
         }
     }
 

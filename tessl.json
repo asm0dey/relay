@@ -7,6 +7,12 @@
     },
     "tessl/maven-info-picocli--picocli": {
       "version": "4.7.0"
+    },
+    "tessl/maven-com-google-protobuf--protobuf-kotlin": {
+      "version": "4.31.0"
+    },
+    "tessl/maven-org-jetbrains-kotlinx--kotlinx-serialization-core": {
+      "version": "1.9.0"
     }
   }
 }

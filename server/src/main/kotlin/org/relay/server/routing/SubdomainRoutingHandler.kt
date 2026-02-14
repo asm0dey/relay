@@ -392,7 +392,7 @@ class SubdomainRoutingHandler @Inject constructor(
             path = request.path() ?: "/",
             query = queryParams.ifEmpty { null },
             headers = headers,
-            body = body
+            body = body?.toByteArray(Charsets.UTF_8)
         )
     }
 
@@ -467,9 +467,9 @@ class SubdomainRoutingHandler @Inject constructor(
 
         try {
             // Serialize and send envelope
-            val envelopeJson = envelope.toJson()
+            val envelopeBinary = ProtobufSerializer.encodeEnvelope(envelope)
 
-            tunnel.session.asyncRemote.sendText(envelopeJson) { sendResult ->
+            tunnel.session.asyncRemote.sendBinary(java.nio.ByteBuffer.wrap(envelopeBinary)) { sendResult ->
                 if (!sendResult.isOK) {
                     logger.error("Failed to send request via WebSocket for correlationId={}: {}", 
                         correlationId, sendResult.exception?.message)
@@ -546,7 +546,7 @@ class SubdomainRoutingHandler @Inject constructor(
         return Envelope(
             correlationId = correlationId,
             type = MessageType.REQUEST,
-            payload = requestPayload.toJsonElement()
+            payload = Payload.Request(requestPayload)
         )
     }
 
@@ -577,15 +577,9 @@ class SubdomainRoutingHandler @Inject constructor(
             }
         }
 
-        // Write body
+        // Write body (v2.0.0: body is already ByteArray, no Base64 decoding needed)
         if (payload.body != null) {
-            try {
-                val decodedBody = Base64.getDecoder().decode(payload.body)
-                response.end(io.vertx.core.buffer.Buffer.buffer(decodedBody))
-            } catch (e: IllegalArgumentException) {
-                logger.warn("Failed to decode base64 body, sending as is", e)
-                response.end(payload.body)
-            }
+            response.end(io.vertx.core.buffer.Buffer.buffer(payload.body))
         } else {
             response.end()
         }

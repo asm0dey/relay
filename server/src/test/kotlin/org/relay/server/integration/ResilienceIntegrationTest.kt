@@ -59,7 +59,9 @@ class ResilienceIntegrationTest {
         // 1. Initial connection
         val (session1, client1) = connectTunnel("test-secret-key")
         await().atMost(Duration.ofSeconds(5)).until { client1.messages.isNotEmpty() }
-        val sub1 = (client1.messages.first().toEnvelope().payload as JsonObject)["subdomain"].toString().replace("\"", "")
+        val envelope1 = ProtobufSerializer.decodeEnvelope(client1.messages.first())
+        val controlPayload1 = (envelope1.payload as Payload.Control).data
+        val sub1 = controlPayload1.subdomain ?: ""
         
         // 2. Disconnect
         session1.close()
@@ -68,7 +70,9 @@ class ResilienceIntegrationTest {
         // 3. Reconnect - should get a new subdomain (or same, but registration should succeed)
         val (session2, client2) = connectTunnel("test-secret-key")
         await().atMost(Duration.ofSeconds(5)).until { client2.messages.isNotEmpty() }
-        val sub2 = (client2.messages.first().toEnvelope().payload as JsonObject)["subdomain"].toString().replace("\"", "")
+        val envelope2 = ProtobufSerializer.decodeEnvelope(client2.messages.first())
+        val controlPayload2 = (envelope2.payload as Payload.Control).data
+        val sub2 = controlPayload2.subdomain ?: ""
         
         assertNotNull(sub2)
         assertTrue(tunnelRegistry.hasTunnel(sub2))
@@ -79,7 +83,9 @@ class ResilienceIntegrationTest {
         // 1. Connect a tunnel
         val (session, client) = connectTunnel("test-secret-key")
         await().atMost(Duration.ofSeconds(5)).until { client.messages.isNotEmpty() }
-        val sub = (client.messages.first().toEnvelope().payload as JsonObject)["subdomain"].toString().replace("\"", "")
+        val envelope = ProtobufSerializer.decodeEnvelope(client.messages.first())
+        val controlPayload = (envelope.payload as Payload.Control).data
+        val sub = controlPayload.subdomain ?: ""
         
         assertTrue(session.isOpen)
         assertTrue(tunnelRegistry.hasTunnel(sub))
@@ -104,7 +110,11 @@ class ResilienceIntegrationTest {
 
     @ClientEndpoint
     class TestWsClient {
-        val messages = CopyOnWriteArrayList<String>()
-        @OnMessage fun onMessage(message: String) { messages.add(message) }
+        val messages = CopyOnWriteArrayList<ByteArray>()
+        @OnMessage fun onMessage(message: java.nio.ByteBuffer) {
+            val messageBytes = ByteArray(message.remaining())
+            message.get(messageBytes)
+            messages.add(messageBytes)
+        }
     }
 }

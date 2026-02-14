@@ -193,19 +193,19 @@ class EndToEndTest {
         val envelope = Envelope(
             correlationId = "test-001",
             type = MessageType.CONTROL,
-            payload = controlPayload.toJsonElement()
+            payload = Payload.Control(controlPayload)
         )
 
-        // When: Serialize to JSON
-        val json = envelope.toJson()
+        // When: Serialize to Protobuf binary
+        val protobufBinary = ProtobufSerializer.encodeEnvelope(envelope)
 
         // Then: Should be able to deserialize back
-        val deserializedEnvelope = json.toEnvelope()
+        val deserializedEnvelope = ProtobufSerializer.decodeEnvelope(protobufBinary)
         assertEquals(envelope.correlationId, deserializedEnvelope.correlationId)
         assertEquals(envelope.type, deserializedEnvelope.type)
 
         // Parse the control payload
-        val deserializedControl = deserializedEnvelope.payload.toObject<ControlPayload>()
+        val deserializedControl = (deserializedEnvelope.payload as Payload.Control).data
 
         assertEquals(ControlPayload.ACTION_REGISTERED, deserializedControl.action)
         assertEquals("test-subdomain-123", deserializedControl.subdomain)

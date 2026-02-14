@@ -50,16 +50,16 @@ class AuthenticationIntegrationTest {
         val (_, client) = connectWebSocket(VALID_KEY)
 
         awaitMessage(client)
-        
-        val json = client.messages.first()
-        println("[DEBUG_LOG] Received message: $json")
-        val envelope = parseEnvelope(json)
-        assertNotNull(envelope, "Envelope should not be null for message: $json")
+
+        val binaryMessage = client.messages.first()
+        println("[DEBUG_LOG] Received binary message: ${binaryMessage.size} bytes")
+        val envelope = parseEnvelope(binaryMessage)
+        assertNotNull(envelope, "Envelope should not be null for binary message")
         assertEquals(MessageType.CONTROL, envelope!!.type)
-        
-        val payload = envelope.payload as JsonObject
-        assertEquals("REGISTERED", payload["action"].toString().replace("\"", ""))
-        val subdomain = payload["subdomain"].toString().replace("\"", "")
+
+        val controlPayload = (envelope.payload as Payload.Control).data
+        assertEquals("REGISTERED", controlPayload.action)
+        val subdomain = controlPayload.subdomain ?: ""
         assertTrue(subdomain.isNotBlank())
         
         // Verify tunnel is registered
@@ -114,29 +114,33 @@ class AuthenticationIntegrationTest {
             .until { client.messages.isNotEmpty() }
     }
 
-    private fun parseEnvelope(json: String): Envelope? {
+    private fun parseEnvelope(binaryMessage: ByteArray): Envelope? {
         return try {
-            json.toEnvelope()
+            ProtobufSerializer.decodeEnvelope(binaryMessage)
         } catch (_: Exception) {
             null
         }
     }
 
-    private fun extractSubdomain(json: String): String? {
-        val envelope = parseEnvelope(json) ?: return null
+    private fun extractSubdomain(binaryMessage: ByteArray): String? {
+        val envelope = parseEnvelope(binaryMessage) ?: return null
         if (envelope.type != MessageType.CONTROL) return null
-        val payload = envelope.payload as? JsonObject
-        return payload?.get("subdomain")?.toString()?.replace("\"", "")
+        val controlPayload = (envelope.payload as? Payload.Control)?.data
+        return controlPayload?.subdomain
     }
 
     @ClientEndpoint
     class TestWsClient {
-        val messages = CopyOnWriteArrayList<String>()
+        val messages = CopyOnWriteArrayList<ByteArray>()
         @Volatile var closed = false
         @Volatile var closeReason: CloseReason? = null
 
         @OnMessage
-        fun onMessage(message: String) { messages.add(message) }
+        fun onMessage(message: java.nio.ByteBuffer) {
+            val messageBytes = ByteArray(message.remaining())
+            message.get(messageBytes)
+            messages.add(messageBytes)
+        }
 
         @OnClose
         fun onClose(session: Session, reason: CloseReason) {

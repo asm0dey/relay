@@ -1,0 +1,7 @@
+{
+  "name": "tessl/maven-com-google-protobuf--protobuf-kotlin",
+  "version": "4.31.0",
+  "docs": "docs/index.md",
+  "describes": "pkg:maven/com.google.protobuf/protobuf-kotlin@4.31.1",
+  "summary": "Kotlin language bindings and extensions for Google Protocol Buffers providing idiomatic Kotlin APIs with DSL builders and type safety."
+}

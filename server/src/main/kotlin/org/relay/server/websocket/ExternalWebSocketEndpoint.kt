@@ -5,7 +5,7 @@ import jakarta.inject.Inject
 import jakarta.websocket.*
 import jakarta.websocket.server.PathParam
 import jakarta.websocket.server.ServerEndpoint
-import kotlinx.serialization.json.*
+import java.nio.ByteBuffer
 import org.relay.server.config.RelayConfig
 import org.relay.server.tunnel.TunnelConnection
 import org.relay.server.tunnel.TunnelRegistry
@@ -287,11 +287,13 @@ class ExternalWebSocketEndpoint @Inject constructor(
         val envelope = Envelope(
             correlationId = correlationId,
             type = MessageType.REQUEST,
-            payload = requestPayload.toJsonElement()
+            payload = Payload.Request(requestPayload)
         )
 
-        val message = envelope.toJson()
-        tunnel.session.asyncRemote.sendText(message) { result ->
+        // v2.0.0: Encode to Protobuf binary
+        val binaryMessage = ProtobufSerializer.encodeEnvelope(envelope)
+        val byteBuffer = ByteBuffer.wrap(binaryMessage)
+        tunnel.session.asyncRemote.sendBinary(byteBuffer) { result ->
             if (!result.isOK) {
                 logger.error("Failed to send WebSocket upgrade request to tunnel: subdomain={}", tunnel.subdomain)
                 tunnel.webSocketProxies[correlationId]?.close(
@@ -323,12 +325,14 @@ class ExternalWebSocketEndpoint @Inject constructor(
 
             val envelope = Envelope(
                 correlationId = correlationId,
-                type = MessageType.REQUEST,  // Use REQUEST type for WebSocket frames too
-                payload = framePayload.toJsonElement()
+                type = MessageType.REQUEST,
+                payload = Payload.WebSocketFrame(framePayload)
             )
 
-            val message = envelope.toJson()
-            tunnel.session.asyncRemote.sendText(message)
+            // v2.0.0: Encode to Protobuf binary
+            val binaryMessage = ProtobufSerializer.encodeEnvelope(envelope)
+            val byteBuffer = ByteBuffer.wrap(binaryMessage)
+            tunnel.session.asyncRemote.sendBinary(byteBuffer)
         } catch (e: Exception) {
             logger.error("Failed to forward WebSocket frame to tunnel: subdomain={}", tunnel.subdomain, e)
         }

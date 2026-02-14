@@ -3,7 +3,7 @@ package org.relay.client.websocket
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.inject.Inject
 import jakarta.websocket.*
-import kotlinx.serialization.json.*
+import java.nio.ByteBuffer
 import org.relay.client.config.ClientConfig
 import org.relay.client.proxy.LocalHttpProxy
 import org.relay.client.retry.ReconnectionHandler
@@ -79,19 +79,30 @@ class WebSocketClientEndpoint @Inject constructor(
     }
 
     /**
-     * Called when a message is received from the server.
+     * Called when a BINARY message is received from the server (Protobuf format).
      * Parses the envelope and routes messages to appropriate handlers.
+     *
+     * v2.0.0: Changed from String to ByteBuffer (binary Protobuf messages only)
      */
     @OnMessage
-    fun onMessage(message: String, session: Session) {
-        logger.debug("Received message from server: session={}, size={}, preview={}", 
-            session.id, message.length, message.take(200))
+    fun onMessage(message: ByteBuffer, session: Session) {
+        val messageBytes = ByteArray(message.remaining())
+        message.get(messageBytes)
+
+        logger.debug("Received binary Protobuf message from server: session={}, messageSize={}",
+            session.id, messageBytes.size)
 
         try {
-            val envelope = message.toEnvelope()
+            // Decode Protobuf binary to Envelope
+            val envelope = ProtobufSerializer.decodeEnvelope(messageBytes)
+            logger.debug("Decoded envelope: correlationId={}, type={}", envelope.correlationId, envelope.type)
             handleEnvelope(envelope)
+        } catch (e: kotlinx.serialization.SerializationException) {
+            logger.error("Malformed Protobuf message from server: session={}, messageSize={} bytes: {}",
+                session.id, messageBytes.size, e.message, e)
         } catch (e: Exception) {
-            logger.error("Failed to parse message: {}", message, e)
+            logger.error("Unexpected error processing message from server: session={}, messageSize={} bytes",
+                session.id, messageBytes.size, e)
         }
     }
 
@@ -146,30 +157,27 @@ class WebSocketClientEndpoint @Inject constructor(
      * and sending the response back. Also handles WebSocket upgrade requests.
      */
     private fun handleRequestMessage(envelope: Envelope) {
-        // First check if this is a WebSocket frame message
-        try {
-            val payload = envelope.payload
-            if (payload is JsonObject && payload.containsKey("type") && (payload.containsKey("data") || payload.containsKey("closeCode"))) {
-                val framePayload = envelope.payload.toObject<WebSocketFramePayload>()
-                logger.debug("Received WebSocket frame from server: correlationId={}, type={}", 
-                    envelope.correlationId, framePayload.type)
-                // This is a WebSocket frame from the server (external -> local)
-                localWebSocketProxy.handleFrameFromServer(envelope.correlationId, framePayload)
+        // Check payload type
+        when (val payload = envelope.payload) {
+            is Payload.WebSocketFrame -> {
+                // WebSocket frame from server (external -> local)
+                logger.debug("Received WebSocket frame from server: correlationId={}, type={}",
+                    envelope.correlationId, payload.data.type)
+                localWebSocketProxy.handleFrameFromServer(envelope.correlationId, payload.data)
                 return
             }
-        } catch (e: Exception) {
-            // Not a WebSocket frame, proceed with HTTP request handling
+            is Payload.Request -> {
+                // HTTP request from server
+                handleHttpRequest(envelope, payload.data)
+            }
+            else -> {
+                logger.warn("Unexpected payload type in REQUEST message: {}", payload::class.simpleName)
+            }
         }
+    }
 
-        val requestPayload = try {
-            envelope.payload.toObject<RequestPayload>()
-        } catch (e: Exception) {
-            logger.error("Failed to parse REQUEST payload", e)
-            sendErrorResponse(envelope.correlationId, 400, "Bad Request: Invalid payload")
-            return
-        }
-
-        logger.debug("Handling HTTP request: correlationId={}, method={}, path={}", 
+    private fun handleHttpRequest(envelope: Envelope, requestPayload: RequestPayload) {
+        logger.debug("Handling HTTP request: correlationId={}, method={}, path={}",
             envelope.correlationId, requestPayload.method, requestPayload.path)
 
         // Check if this is a WebSocket upgrade request
@@ -216,7 +224,7 @@ class WebSocketClientEndpoint @Inject constructor(
             val errorPayload = ResponsePayload(
                 statusCode = 502,
                 headers = mapOf("Content-Type" to "text/plain"),
-                body = "Failed to connect to local WebSocket"
+                body = "Failed to connect to local WebSocket".toByteArray()
             )
             sendResponse(correlationId, errorPayload)
         }
@@ -232,11 +240,13 @@ class WebSocketClientEndpoint @Inject constructor(
             val envelope = Envelope(
                 correlationId = correlationId,
                 type = MessageType.RESPONSE,
-                payload = framePayload.toJsonElement()
+                payload = Payload.WebSocketFrame(framePayload)
             )
 
-            val message = envelope.toJson()
-            session?.asyncRemote?.sendText(message)
+            // v2.0.0: Encode to Protobuf binary
+            val binaryMessage = ProtobufSerializer.encodeEnvelope(envelope)
+            val byteBuffer = ByteBuffer.wrap(binaryMessage)
+            session?.asyncRemote?.sendBinary(byteBuffer)
         } catch (e: Exception) {
             logger.error("Failed to send WebSocket frame to server: correlationId={}", correlationId, e)
         }
@@ -246,11 +256,12 @@ class WebSocketClientEndpoint @Inject constructor(
      * Handles a CONTROL message from the server (e.g., registration confirmation).
      */
     private fun handleControlMessage(envelope: Envelope) {
-        val controlPayload = try {
-            envelope.payload.toObject<ControlPayload>()
-        } catch (e: Exception) {
-            logger.error("Failed to parse CONTROL payload", e)
-            return
+        val controlPayload = when (val payload = envelope.payload) {
+            is Payload.Control -> payload.data
+            else -> {
+                logger.error("Expected Control payload but got: {}", payload::class.simpleName)
+                return
+            }
         }
 
         when (controlPayload.action) {
@@ -296,38 +307,18 @@ class WebSocketClientEndpoint @Inject constructor(
      * Handles an ERROR message from the server.
      */
     private fun handleErrorMessage(envelope: Envelope) {
-        val errorPayload = try {
-            envelope.payload.toObject<ErrorPayload>()
-        } catch (e: Exception) {
-            logger.error("Failed to parse ERROR payload: {}", envelope.payload)
-            return
-        }
-
-        logger.error("Received error from server: [{}] {}", 
-            errorPayload.code, errorPayload.message)
-    }
-
-    /**
-     * Sends a registration request to the server with the secret key.
-     */
-    private fun sendRegistrationRequest() {
-        val registrationPayload = buildJsonObject {
-            put("action", ControlPayload.ACTION_REGISTER)
-            put("secretKey", clientConfig.secretKey().orElse(""))
-            if (clientConfig.subdomain().isPresent) {
-                put("requestedSubdomain", clientConfig.subdomain().get())
+        val errorPayload = when (val payload = envelope.payload) {
+            is Payload.Error -> payload.data
+            else -> {
+                logger.error("Expected Error payload but got: {}", payload::class.simpleName)
+                return
             }
         }
 
-        val envelope = Envelope(
-            correlationId = generateCorrelationId(),
-            type = MessageType.CONTROL,
-            payload = registrationPayload
-        )
-
-        sendMessage(envelope)
-        logger.debug("Sent registration request")
+        logger.error("Received error from server: [{}] {}",
+            errorPayload.code, errorPayload.message)
     }
+
 
     /**
      * Sends a RESPONSE message back to the server.
@@ -337,7 +328,7 @@ class WebSocketClientEndpoint @Inject constructor(
         val envelope = Envelope(
             correlationId = correlationId,
             type = MessageType.RESPONSE,
-            payload = responsePayload.toJsonElement()
+            payload = Payload.Response(responsePayload)
         )
 
         sendMessage(envelope)
@@ -350,7 +341,7 @@ class WebSocketClientEndpoint @Inject constructor(
         val errorPayload = ResponsePayload(
             statusCode = statusCode,
             headers = mapOf("Content-Type" to "text/plain"),
-            body = java.util.Base64.getEncoder().encodeToString(message.toByteArray())
+            body = message.toByteArray()
         )
 
         sendResponse(correlationId, errorPayload)
@@ -363,10 +354,12 @@ class WebSocketClientEndpoint @Inject constructor(
         val currentSession = session
         return if (currentSession != null && currentSession.isOpen) {
             try {
-                val message = envelope.toJson()
-                logger.debug("Sending message to server: type={}, correlationId={}, size={}", 
-                    envelope.type, envelope.correlationId, message.length)
-                currentSession.asyncRemote.sendText(message)
+                // v2.0.0: Encode to Protobuf binary
+                val binaryMessage = ProtobufSerializer.encodeEnvelope(envelope)
+                val byteBuffer = ByteBuffer.wrap(binaryMessage)
+                logger.debug("Sending message to server: type={}, correlationId={}, size={} bytes",
+                    envelope.type, envelope.correlationId, binaryMessage.size)
+                currentSession.asyncRemote.sendBinary(byteBuffer)
                 true
             } catch (e: Exception) {
                 logger.error("Failed to send message: correlationId={}", envelope.correlationId, e)

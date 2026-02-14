@@ -58,8 +58,9 @@ class HttpForwardingIntegrationTest {
         client = wsClient
         
         await().atMost(Duration.ofSeconds(5)).until { client.messages.isNotEmpty() }
-        val envelope = client.messages.first().toEnvelope()
-        subdomain = (envelope.payload as JsonObject)["subdomain"].toString().replace("\"", "")
+        val envelope = ProtobufSerializer.decodeEnvelope(client.messages.first())
+        val controlPayload = (envelope.payload as Payload.Control).data
+        subdomain = controlPayload.subdomain
         
         // Clear registration message for clean test state
         client.messages.clear()
@@ -85,10 +86,10 @@ class HttpForwardingIntegrationTest {
 
         // 2. Client should receive REQUEST message
         await().atMost(Duration.ofSeconds(5)).until { client.messages.isNotEmpty() }
-        val requestEnvelope = client.messages.first().toEnvelope()
+        val requestEnvelope = ProtobufSerializer.decodeEnvelope(client.messages.first())
         assertEquals(MessageType.REQUEST, requestEnvelope.type)
         
-        val requestPayload = requestEnvelope.payload.toObject<RequestPayload>()
+        val requestPayload = (requestEnvelope.payload as Payload.Request).data
         assertEquals("GET", requestPayload.method)
         assertEquals("/api/test", requestPayload.path)
         assertEquals("bar", requestPayload.query?.get("foo"))
@@ -97,15 +98,15 @@ class HttpForwardingIntegrationTest {
         val responsePayload = ResponsePayload(
             statusCode = 200,
             headers = mapOf("Content-Type" to "text/plain"),
-            body = "Hello from tunnel"
+            body = "Hello from tunnel".toByteArray()
         )
         val responseEnvelope = Envelope(
             correlationId = requestEnvelope.correlationId,
             type = MessageType.RESPONSE,
-            payload = responsePayload.toJsonElement()
+            payload = Payload.Response(responsePayload)
         )
         
-        sessions.first().basicRemote.sendText(responseEnvelope.toJson())
+        sessions.first().basicRemote.sendBinary(java.nio.ByteBuffer.wrap(ProtobufSerializer.encodeEnvelope(responseEnvelope)))
 
         // 4. Server should return the response to the original HTTP requester
         val response = responseFuture.get()
@@ -127,19 +128,19 @@ class HttpForwardingIntegrationTest {
         val responseFuture = httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
 
         await().atMost(Duration.ofSeconds(5)).until { client.messages.isNotEmpty() }
-        val requestEnvelope = client.messages.first().toEnvelope()
-        val requestPayload = requestEnvelope.payload.toObject<RequestPayload>()
+        val requestEnvelope = ProtobufSerializer.decodeEnvelope(client.messages.first())
+        val requestPayload = (requestEnvelope.payload as Payload.Request).data
         
         assertEquals("POST", requestPayload.method)
-        assertEquals(requestBody, requestPayload.body)
+        assertEquals(requestBody, requestPayload.body?.let { String(it) })
 
-        val responsePayload = ResponsePayload(201, emptyMap(), "Created")
+        val responsePayload = ResponsePayload(201, emptyMap(), "Created".toByteArray())
         val responseEnvelope = Envelope(
             correlationId = requestEnvelope.correlationId,
             type = MessageType.RESPONSE,
-            payload = responsePayload.toJsonElement()
+            payload = Payload.Response(responsePayload)
         )
-        sessions.first().basicRemote.sendText(responseEnvelope.toJson())
+        sessions.first().basicRemote.sendBinary(java.nio.ByteBuffer.wrap(ProtobufSerializer.encodeEnvelope(responseEnvelope)))
 
         val response = responseFuture.get()
         assertEquals(201, response.statusCode())
@@ -195,11 +196,15 @@ class HttpForwardingIntegrationTest {
 
     @ClientEndpoint
     class TestWsClient {
-        val messages = CopyOnWriteArrayList<String>()
+        val messages = CopyOnWriteArrayList<ByteArray>()
         @Volatile var closed = false
 
         @OnMessage
-        fun onMessage(message: String) { messages.add(message) }
+        fun onMessage(message: java.nio.ByteBuffer) {
+            val messageBytes = ByteArray(message.remaining())
+            message.get(messageBytes)
+            messages.add(messageBytes)
+        }
 
         @OnClose
         fun onClose(session: Session, reason: CloseReason) {

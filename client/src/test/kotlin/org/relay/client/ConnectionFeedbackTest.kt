@@ -82,13 +82,15 @@ class ConnectionFeedbackTest {
         val envelope = Envelope(
             correlationId = "test-123",
             type = MessageType.CONTROL,
-            payload = controlPayload.toJsonElement()
+            payload = Payload.Control(controlPayload)
         )
 
-        val message = envelope.toJson()
+        // v2.0.0: Encode to Protobuf binary
+        val binaryMessage = ProtobufSerializer.encodeEnvelope(envelope)
+        val byteBuffer = java.nio.ByteBuffer.wrap(binaryMessage)
 
         // Simulate message reception (bypassing WebSocket session requirement)
-        clientEndpoint.onMessage(message, mock(jakarta.websocket.Session::class.java))
+        clientEndpoint.onMessage(byteBuffer, mock(jakarta.websocket.Session::class.java))
 
         // Then: The tunnel ready message should be logged
         val logMessages = logAppender.list.map { it.formattedMessage }
@@ -128,11 +130,11 @@ class ConnectionFeedbackTest {
         val envelope = Envelope(
             correlationId = "test-456",
             type = MessageType.CONTROL,
-            payload = controlPayload.toJsonElement()
+            payload = Payload.Control(controlPayload)
         )
 
-        val message = envelope.toJson()
-        clientEndpoint.onMessage(message, mock(jakarta.websocket.Session::class.java))
+        val message = ProtobufSerializer.encodeEnvelope(envelope)
+        clientEndpoint.onMessage(java.nio.ByteBuffer.wrap(message), mock(jakarta.websocket.Session::class.java))
 
         // Then: The message should be at INFO level
         val infoLevelLogs = logAppender.list.filter {
@@ -176,11 +178,11 @@ class ConnectionFeedbackTest {
         val envelope = Envelope(
             correlationId = "test-789",
             type = MessageType.CONTROL,
-            payload = controlPayload.toJsonElement()
+            payload = Payload.Control(controlPayload)
         )
 
-        val message = envelope.toJson()
-        clientEndpoint.onMessage(message, mock(jakarta.websocket.Session::class.java))
+        val message = ProtobufSerializer.encodeEnvelope(envelope)
+        clientEndpoint.onMessage(java.nio.ByteBuffer.wrap(message), mock(jakarta.websocket.Session::class.java))
 
         // Then: Message format should be correct
         val logMessages = logAppender.list.map { it.formattedMessage }

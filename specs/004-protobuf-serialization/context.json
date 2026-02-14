@@ -1,0 +1,7 @@
+{
+  "testify": {
+    "assertion_hash": "22aaeee08130fff33933b9fcd35172911ddbd298236b372f10f688d0fb871a13",
+    "generated_at": "2026-02-14T11:27:49Z",
+    "test_specs_file": "/home/finkel/work_self/relay/specs/004-protobuf-serialization/tests/test-specs.md"
+  }
+}

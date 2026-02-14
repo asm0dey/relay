@@ -1,13 +1,19 @@
 package org.relay.shared.protocol
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.protobuf.ProtoNumber
 
 /**
  * Payload for CONTROL messages for administrative and configuration actions.
  */
 @Serializable
 data class ControlPayload(
+    @ProtoNumber(1)
     val action: String,
+
+    @ProtoNumber(2)
     val subdomain: String? = null,
+
+    @ProtoNumber(3)
     val publicUrl: String? = null
 ) {
     companion object {

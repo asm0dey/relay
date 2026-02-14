@@ -90,7 +90,8 @@ class RequestForwarder @Inject constructor(
 
             // Create and send the request envelope
             val envelope = createRequestEnvelope(correlationId, requestPayload)
-            val envelopeJson = envelope.toJson()
+            // v2.0.0: Encode to Protobuf binary
+            val envelopeBinary = ProtobufSerializer.encodeEnvelope(envelope)
 
             // Create future for response
             val responseFuture = CompletableFuture<ResponsePayload>()
@@ -115,8 +116,8 @@ class RequestForwarder @Inject constructor(
                 }
             }
 
-            // Send via WebSocket
-            val sendResult = sendViaWebSocket(tunnel.session, envelopeJson)
+            // Send via WebSocket (v2.0.0: binary Protobuf)
+            val sendResult = sendViaWebSocket(tunnel.session, envelopeBinary)
 
             if (!sendResult) {
                 logger.error("Failed to send request via WebSocket: subdomain={}, correlationId={}", subdomain, correlationId)
@@ -204,23 +205,24 @@ class RequestForwarder @Inject constructor(
         return Envelope(
             correlationId = correlationId,
             type = MessageType.REQUEST,
-            payload = requestPayload.toJsonElement()
+            payload = Payload.Request(requestPayload)
         )
     }
 
     /**
-     * Sends the envelope JSON via WebSocket session.
+     * Sends the envelope binary (Protobuf) via WebSocket session.
+     * v2.0.0: Uses binary Protobuf format.
      *
      * @param session The WebSocket session
-     * @param envelopeJson The serialized envelope
+     * @param envelopeBinary The serialized envelope (Protobuf binary)
      * @return true if send was successful, false otherwise
      */
-    private fun sendViaWebSocket(session: jakarta.websocket.Session, envelopeJson: String): Boolean {
+    private fun sendViaWebSocket(session: jakarta.websocket.Session, envelopeBinary: ByteArray): Boolean {
         return try {
             val asyncRemote = session.asyncRemote
             val future = CompletableFuture<Boolean>()
 
-            asyncRemote.sendText(envelopeJson) { result ->
+            asyncRemote.sendBinary(java.nio.ByteBuffer.wrap(envelopeBinary)) { result ->
                 if (result.isOK) {
                     future.complete(true)
                 } else {

@@ -55,7 +55,7 @@ class LocalHttpProxy @Inject constructor() {
         path: String,
         query: Map<String, String>?,
         headers: Map<String, String>,
-        body: String?
+        body: ByteArray?
     ): ResponsePayload {
         val localUrl = System.getProperty("relay.client.local-url")
         
@@ -118,14 +118,14 @@ class LocalHttpProxy @Inject constructor() {
             ResponsePayload(
                 statusCode = 502,
                 headers = mapOf("Content-Type" to "text/plain"),
-                body = Base64.getEncoder().encodeToString("Bad Gateway: ${e.message}".toByteArray())
+                body = "Bad Gateway: ${e.message}".toByteArray()
             )
         } catch (e: Exception) {
             logger.error("Unexpected error while proxying request", e)
             ResponsePayload(
                 statusCode = 500,
                 headers = mapOf("Content-Type" to "text/plain"),
-                body = Base64.getEncoder().encodeToString("Internal Server Error: ${e.message}".toByteArray())
+                body = "Internal Server Error: ${e.message}".toByteArray()
             )
         }
     }
@@ -134,15 +134,11 @@ class LocalHttpProxy @Inject constructor() {
         val headers = response.headers.toMultimap()
             .map { (name, values) -> name to values.joinToString(", ") }
             .toMap()
-        
-        val body = response.body?.bytes()?.let {
-            Base64.getEncoder().encodeToString(it)
-        }
-        
+
         return ResponsePayload(
             statusCode = response.code,
             headers = headers,
-            body = body
+            body = response.body?.bytes()
         )
     }
 }

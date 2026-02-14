@@ -55,8 +55,9 @@ class EdgeCaseIntegrationTest {
         sessions.add(session)
         
         await().atMost(Duration.ofSeconds(5)).until { tunnelClient.messages.isNotEmpty() }
-        val envelope = tunnelClient.messages.first().toEnvelope()
-        subdomain = (envelope.payload as JsonObject)["subdomain"].toString().replace("\"", "")
+        val envelope = ProtobufSerializer.decodeEnvelope(tunnelClient.messages.first())
+        val controlPayload = (envelope.payload as Payload.Control).data
+        subdomain = controlPayload.subdomain
         tunnelClient.messages.clear()
     }
 
@@ -96,16 +97,16 @@ class EdgeCaseIntegrationTest {
 
         // Tunnel client receives request
         await().atMost(Duration.ofSeconds(5)).until { tunnelClient.messages.isNotEmpty() }
-        val requestEnvelope = tunnelClient.messages.first().toEnvelope()
+        val requestEnvelope = ProtobufSerializer.decodeEnvelope(tunnelClient.messages.first())
         
         // Send back ERROR instead of RESPONSE
         val errorPayload = ErrorPayload(ErrorCode.UPSTREAM_ERROR, "Non-HTTP response")
         val errorEnvelope = Envelope(
             correlationId = requestEnvelope.correlationId,
             type = MessageType.ERROR,
-            payload = errorPayload.toJsonElement()
+            payload = Payload.Error(errorPayload)
         )
-        sessions.first().basicRemote.sendText(errorEnvelope.toJson())
+        sessions.first().basicRemote.sendBinary(java.nio.ByteBuffer.wrap(ProtobufSerializer.encodeEnvelope(errorEnvelope)))
 
         val response = responseFuture.get()
         assertEquals(502, response.statusCode())
@@ -113,7 +114,11 @@ class EdgeCaseIntegrationTest {
 
     @ClientEndpoint
     class TestWsClient {
-        val messages = CopyOnWriteArrayList<String>()
-        @OnMessage fun onMessage(message: String) { messages.add(message) }
+        val messages = CopyOnWriteArrayList<ByteArray>()
+        @OnMessage fun onMessage(message: java.nio.ByteBuffer) {
+            val messageBytes = ByteArray(message.remaining())
+            message.get(messageBytes)
+            messages.add(messageBytes)
+        }
     }
 }

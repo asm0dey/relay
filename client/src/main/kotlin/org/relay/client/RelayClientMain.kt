@@ -36,7 +36,7 @@ import kotlin.system.exitProcess
 @Command(
     name = "relay-client",
     mixinStandardHelpOptions = true,
-    version = ["1.0.0"],
+    version = ["2.0.0"],
     description = ["Relay Tunnel Client - expose local HTTP services to the internet"],
     footer = [
         "",

@@ -14,13 +14,13 @@ relay:
 quarkus:
   application:
     name: relay-client
-    version: 1.0.0
+    version: 2.0.0
   log:
     console:
       format: "%d{yyyy-MM-dd HH:mm:ss} %-5p [%c{2.}] (%t) %s%e%n"
-    level: SEVERE
+    level: ERROR
     category:
-      "org.relay.client":
+      "org.relay":
         level: INFO
   # Disable banner and startup messages for cleaner CLI output
   banner:

@@ -6,7 +6,9 @@ import jakarta.ws.rs.*
 import jakarta.ws.rs.core.Context
 import org.jboss.resteasy.reactive.RestResponse
 import site.asm0dey.relay.domain.Envelope
-import java.util.*
+import site.asm0dey.relay.domain.Request
+import site.asm0dey.relay.domain.Request.RequestPayload
+import java.util.UUID.randomUUID
 import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder as RestResponseBuilder
 
 @Path("")
@@ -22,9 +24,7 @@ class HttpEndpoint {
         @QueryParam("X-Domain") domain: String?,
         @HeaderParam("X-Domain") domainHeader: String?,
     ): RestResponse<ByteArray?> {
-        val envelope = envelope("GET")
-        val responseEnvelope = socketService.request(envelope, extractHost(domain, domainHeader))
-        return buildResponse(responseEnvelope)
+        return response(makeRequest(domain, domainHeader, "GET"))
     }
 
     @POST
@@ -33,9 +33,7 @@ class HttpEndpoint {
         @HeaderParam("X-Domain") domainHeader: String?,
         body: ByteArray?
     ): RestResponse<ByteArray?> {
-        val envelope = envelope("POST", body)
-        val responseEnvelope = socketService.request(envelope, extractHost(domain, domainHeader))
-        return buildResponse(responseEnvelope)
+        return response(makeRequest(domain, domainHeader, "POST", body))
     }
 
     @PUT
@@ -44,9 +42,7 @@ class HttpEndpoint {
         @HeaderParam("X-Domain") domainHeader: String?,
         body: ByteArray?
     ): RestResponse<ByteArray?> {
-        val envelope = envelope("PUT", body)
-        val responseEnvelope = socketService.request(envelope, extractHost(domain, domainHeader))
-        return buildResponse(responseEnvelope)
+        return response(makeRequest(domain, domainHeader, "PUT", body))
     }
 
     @HEAD
@@ -54,9 +50,7 @@ class HttpEndpoint {
         @QueryParam("X-Domain") domain: String?,
         @HeaderParam("X-Domain") domainHeader: String?,
     ): RestResponse<ByteArray?> {
-        val envelope = envelope("HEAD")
-        val responseEnvelope = socketService.request(envelope, extractHost(domain, domainHeader))
-        return buildResponse(responseEnvelope)
+        return response(makeRequest(domain, domainHeader, "HEAD"))
     }
 
     @DELETE
@@ -65,9 +59,7 @@ class HttpEndpoint {
         @HeaderParam("X-Domain") domainHeader: String?,
         body: ByteArray?
     ): RestResponse<ByteArray?> {
-        val envelope = envelope("DELETE", body)
-        val responseEnvelope = socketService.request(envelope, extractHost(domain, domainHeader))
-        return buildResponse(responseEnvelope)
+        return response(makeRequest(domain, domainHeader, "DELETE", body))
     }
 
     @OPTIONS
@@ -75,9 +67,7 @@ class HttpEndpoint {
         @QueryParam("X-Domain") domain: String?,
         @HeaderParam("X-Domain") domainHeader: String?,
     ): RestResponse<ByteArray?> {
-        val envelope = envelope("OPTIONS")
-        val responseEnvelope = socketService.request(envelope, extractHost(domain, domainHeader))
-        return buildResponse(responseEnvelope)
+        return response(makeRequest(domain, domainHeader, "OPTIONS"))
     }
 
     @PATCH
@@ -86,15 +76,28 @@ class HttpEndpoint {
         @HeaderParam("X-Domain") domainHeader: String?,
         body: ByteArray?
     ): RestResponse<ByteArray?> {
-        val envelope = envelope("PATCH", body)
-        val responseEnvelope = socketService.request(envelope, extractHost(domain, domainHeader))
-        return buildResponse(responseEnvelope)
+        return response(makeRequest(domain, domainHeader, "PATCH", body))
     }
 
-    private fun envelope(method: String, body: ByteArray? = null): Envelope = Envelope(
-        correlationId = UUID.randomUUID().toString(),
-        payload = site.asm0dey.relay.domain.Request(
-            site.asm0dey.relay.domain.Request.RequestPayload(
+    private suspend fun makeRequest(
+        domain: String?,
+        domainHeader: String?,
+        method: String,
+        body: ByteArray? = null
+    ): Envelope {
+        val host = extractHost(domain, domainHeader)
+        val envelope = envelope(host, method, body)
+        return socketService.request(envelope, host)
+    }
+
+    private fun envelope(
+        host: String,
+        method: String,
+        body: ByteArray?
+    ): Envelope = Envelope(
+        correlationId = "$host-${randomUUID()}",
+        payload = Request(
+            RequestPayload(
                 method = method,
                 path = request.path(),
                 query = request
@@ -113,7 +116,7 @@ class HttpEndpoint {
         )
     )
 
-    private fun buildResponse(envelope: Envelope): RestResponse<ByteArray?> {
+    private fun response(envelope: Envelope): RestResponse<ByteArray?> {
         val responsePayload = envelope.payload as? site.asm0dey.relay.domain.Response
             ?: throw IllegalStateException("Expected Response payload, got ${envelope.payload}")
         val payload = responsePayload.value

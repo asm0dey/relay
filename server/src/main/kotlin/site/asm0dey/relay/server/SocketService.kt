@@ -26,7 +26,7 @@ class SocketService() {
     @Suppress("CdiInjectionPointsInspection")
     @Inject
     private lateinit var connections: OpenConnections
-    
+
     @ConfigProperty(name = "relay.main-domain", defaultValue = "domain.example.com")
     lateinit var mainDomain: String
 
@@ -42,7 +42,14 @@ class SocketService() {
         val subdomain = if (requestedSubdomain.isNullOrEmpty()) generateRandomSubdomain() else requestedSubdomain
         connection.userData().put(domainString, subdomain)
     }
-    
+
+    @OnClose
+    fun onClose(connection: WebSocketConnection) {
+        pendingRequests
+            .filter { it.key.id.startsWith(connection.userData().get(domainString)) }
+            .forEach { it.value.completeExceptionally(IllegalStateException("Client disconnected"))}
+    }
+
     private fun generateRandomSubdomain(): String {
         val chars = ('a'..'z') + ('0'..'9')
         return (1..5)
@@ -60,14 +67,17 @@ class SocketService() {
                     val fullDomain = "$subdomain.$mainDomain"
                     val response = Envelope(
                         correlationId = envelope.correlationId,
-                        payload = Control(Control.ControlPayload(
-                            Control.ControlPayload.ControlAction.REGISTERED,
-                            subdomain = subdomain,
-                            publicUrl = fullDomain
-                        ))
+                        payload = Control(
+                            Control.ControlPayload(
+                                Control.ControlPayload.ControlAction.REGISTERED,
+                                subdomain = subdomain,
+                                publicUrl = fullDomain
+                            )
+                        )
                     )
                     connection.sendBinary(response.toByteArray()).awaitSuspending()
                 }
+
                 Control.ControlPayload.ControlAction.HEARTBEAT -> {
                     val response = Envelope(
                         correlationId = envelope.correlationId,
@@ -75,6 +85,11 @@ class SocketService() {
                     )
                     connection.sendBinary(response.toByteArray()).awaitSuspending()
                 }
+
+                Control.ControlPayload.ControlAction.UNREGISTER -> {
+                    connection.close().awaitSuspending()
+                }
+
                 else -> {}
             }
         } else {
@@ -95,7 +110,8 @@ class SocketService() {
 
     suspend fun request(envelope: Envelope, host: String): Envelope {
         val deferred = CompletableDeferred<Envelope>()
-        pendingRequests[CorrelationID(envelope.correlationId)] = deferred
+        val correlationId = CorrelationID(envelope.correlationId)
+        pendingRequests[correlationId] = deferred
         val connection = connections.first { it.userData().get(domainString) == host }
         withTimeout(5000) {
             connection.sendBinary(envelope.toByteArray()).awaitSuspending()
@@ -116,7 +132,7 @@ class SocketService() {
             .map {
                 it.sendBinary(message) to it.close()
             }
-            .forEach { (a,b) ->
+            .forEach { (a, b) ->
                 a.await().atMost(Duration.ofSeconds(5))
                 b.await().atMost(Duration.ofSeconds(5))
             }

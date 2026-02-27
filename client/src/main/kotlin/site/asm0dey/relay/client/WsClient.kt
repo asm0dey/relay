@@ -2,6 +2,7 @@ package site.asm0dey.relay.client
 
 import io.quarkus.runtime.Quarkus
 import io.quarkus.websockets.next.BinaryMessageCodec
+import io.quarkus.websockets.next.Closed
 import io.quarkus.websockets.next.OnBinaryMessage
 import io.quarkus.websockets.next.WebSocketClient
 import io.quarkus.websockets.next.WebSocketClientConnection
@@ -11,6 +12,7 @@ import io.vertx.core.http.HttpMethod.valueOf
 import io.vertx.mutiny.core.Vertx
 import io.vertx.mutiny.core.buffer.Buffer.buffer
 import io.vertx.mutiny.ext.web.client.WebClient
+import jakarta.enterprise.event.ObservesAsync
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import picocli.CommandLine.ParseResult
@@ -28,6 +30,8 @@ class WsClient @Inject constructor(parseResult: ParseResult, vertx: Vertx) {
     val localPort = parseResult.matchedPositional(0).getValue<Int>()
     val url = "http://$localHost:$localPort"
     lateinit var connection: WebSocketClientConnection
+    var assignedSubdomain: String? = null
+
 
     @Suppress("unused")
     @OnBinaryMessage
@@ -37,6 +41,8 @@ class WsClient @Inject constructor(parseResult: ParseResult, vertx: Vertx) {
             is Control -> when (payload.value.action) {
                 SHUTDOWN -> Quarkus.asyncExit(0)
                 REGISTERED -> {
+                    val subdomain = payload.value.subdomain
+                    assignedSubdomain = subdomain
                     val publicUrl = payload.value.publicUrl
                     println(publicUrl)
                 }

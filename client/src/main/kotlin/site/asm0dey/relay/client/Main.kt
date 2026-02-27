@@ -19,7 +19,7 @@ import java.util.*
 
 @QuarkusMain(name = "client")
 @CommandLine.Command
-class Client  constructor() : Runnable, QuarkusApplication {
+class Client constructor() : Runnable, QuarkusApplication {
     @CommandLine.Parameters(index = "0", paramLabel = "PORT", arity = "1", description = ["Port to listen on"])
     var localPort: Int? = null
 
@@ -59,7 +59,14 @@ class Client  constructor() : Runnable, QuarkusApplication {
             }
             .connectAndAwait()
 
-        
+        Runtime.getRuntime().addShutdownHook(Thread {
+            val unregisterMsg = Envelope(
+                correlationId = UUID.randomUUID().toString(),
+                payload = Control(Control.ControlPayload(Control.ControlPayload.ControlAction.UNREGISTER))
+            )
+            connection.sendBinary(unregisterMsg.toByteArray()).await()
+        })
+
         runBlocking {
             connection.sendRegister()
             launch {
@@ -78,11 +85,11 @@ class Client  constructor() : Runnable, QuarkusApplication {
     }
 
     private suspend fun WebSocketClientConnection.sendRegister() {
-            val registerMsg = Envelope(
-                correlationId = UUID.randomUUID().toString(),
-                payload = Control(Control.ControlPayload(REGISTER))
-            )
-            sendBinary(registerMsg.toByteArray()).awaitSuspending()
+        val registerMsg = Envelope(
+            correlationId = UUID.randomUUID().toString(),
+            payload = Control(Control.ControlPayload(REGISTER))
+        )
+        sendBinary(registerMsg.toByteArray()).awaitSuspending()
 
     }
 

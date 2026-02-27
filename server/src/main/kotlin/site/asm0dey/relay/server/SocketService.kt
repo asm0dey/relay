@@ -9,7 +9,6 @@ import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.withTimeout
-import org.eclipse.microprofile.config.inject.ConfigProperty
 import site.asm0dey.relay.domain.*
 import java.lang.reflect.Type
 import java.time.Duration
@@ -27,12 +26,12 @@ class SocketService() {
     @Inject
     private lateinit var connections: OpenConnections
 
-    @ConfigProperty(name = "relay.main-domain", defaultValue = "domain.example.com")
-    lateinit var mainDomain: String
+    @Inject
+    lateinit var serverConfig: ServerConfig
 
     @OnOpen
     suspend fun onConnect(connection: WebSocketConnection, @PathParam secret: String) {
-        if (!("Secret".equals(secret, ignoreCase = true))) {
+        if (secret !in serverConfig.allowedSecretKeys) {
             withTimeout(5000) {
                 connection.close(CloseReason(1008, "Invalid secret key")).awaitSuspending()
             }
@@ -64,7 +63,7 @@ class SocketService() {
             when (controlPayload.value.action) {
                 Control.ControlPayload.ControlAction.REGISTER -> {
                     val subdomain = connection.userData().get(domainString) ?: generateRandomSubdomain()
-                    val fullDomain = "$subdomain.$mainDomain"
+                    val fullDomain = "$subdomain.${serverConfig.domain}"
                     val response = Envelope(
                         correlationId = envelope.correlationId,
                         payload = Control(

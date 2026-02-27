@@ -77,7 +77,6 @@
             <version>1.5.3</version>
             <scope>test</scope>
         </dependency>
-
     </dependencies>
     <build>
         <sourceDirectory>src/main/kotlin</sourceDirectory>
@@ -128,7 +127,8 @@
                 <configuration>
                     <argLine>@{argLine}</argLine>
                     <systemPropertyVariables>
-                        <native.image.path>${project.build.directory}/${project.build.finalName}-runner</native.image.path>
+                        <native.image.path>${project.build.directory}/${project.build.finalName}-runner
+                        </native.image.path>
                         <java.util.logging.manager>org.jboss.logmanager.LogManager</java.util.logging.manager>
                         <maven.home>${maven.home}</maven.home>
                     </systemPropertyVariables>

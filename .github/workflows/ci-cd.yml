@@ -1,0 +1,287 @@
+name: CI/CD Build and Test
+
+on:
+  push:
+    branches: [ "*" ]
+    tags: [ "v*" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            /*
+            !.*/**/:*
+            !**/.*/**/:*
+          sparse-checkout-cone-mode: false
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: 'liberica'
+          cache: 'maven'
+
+      - name: Run tests
+        run: ./mvnw test
+
+  build-server:
+    name: Build Server (${{ matrix.os }}-${{ matrix.arch }})
+    needs: test
+    if: startsWith(github.ref, 'refs/tags/v')
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            arch: amd64
+            target: linux-amd64
+          - os: ubuntu-24.04-arm
+            arch: arm64
+            target: linux-arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            /*
+            !.*/**/:*
+            !**/.*/**/:*
+          sparse-checkout-cone-mode: false
+
+      - name: Set up Liberica NIK
+        uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: '25'
+          distribution: 'liberica'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          cache: 'maven'
+
+      - name: Build Native Server
+        run: ./mvnw :server:build -Dquarkus.package.type=native -xtest
+
+      - name: Rename artifact
+        run: |
+          mv server/build/server-1.0.0-SNAPSHOT-runner server/build/relay-server-${{ matrix.target }}
+          chmod +x server/build/relay-server-${{ matrix.target }}
+          sha256sum server/build/relay-server-${{ matrix.target }} > server/build/relay-server-${{ matrix.target }}.sha256
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: relay-server-${{ matrix.target }}
+          path: |
+            server/build/relay-server-${{ matrix.target }}
+            server/build/relay-server-${{ matrix.target }}.sha256
+
+  build-client:
+    name: Build Client (${{ matrix.os }}-${{ matrix.arch }})
+    needs: test
+    if: startsWith(github.ref, 'refs/tags/v')
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            os: ubuntu-latest
+            ext: ""
+            type: linux
+          - arch: arm64
+            os: ubuntu-24.04-arm
+            ext: ""
+            type: linux
+          - arch: amd64
+            os: windows-latest
+            ext: ".exe"
+            type: windows
+          - arch: amd64
+            os: macos-15-intel
+            ext: ""
+            type: darwin
+          - arch: arm64
+            os: macos-latest
+            ext: ""
+            type: darwin
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Configure Git for Windows paths
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: git config --global core.protectNTFS false
+
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            /*
+            !.*/**/:*
+            !**/.*/**/:*
+          sparse-checkout-cone-mode: false
+
+      - name: Configure Git for Windows paths
+        shell: bash
+        run: rm -rf .tessl .claude .codex .gemini .specify
+
+      - name: Set up Liberica NIK
+        uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: '25'
+          distribution: 'liberica'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          cache: 'maven'
+
+      - name: Build Native Client
+        shell: bash
+        run: ./mvnw :client:build -Dquarkus.package.type=native -xtest
+
+      - name: Prepare Artifact
+        shell: bash
+        run: |
+          BIN_NAME=relay-client-${{ matrix.type }}-${{ matrix.arch }}${{ matrix.ext }}
+          mv client/build/client-1.0.0-SNAPSHOT-runner client/build/$BIN_NAME
+          if [ "${{ matrix.os }}" != "windows-latest" ]; then
+            chmod +x client/build/$BIN_NAME
+          fi
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            certutil -hashfile client/build/$BIN_NAME SHA256 | grep -v "hash" | grep -v "CertUtil" | tr -d ' \n\r' > client/build/$BIN_NAME.sha256
+          else
+            sha256sum client/build/$BIN_NAME > client/build/$BIN_NAME.sha256
+          fi
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: relay-client-${{ matrix.type }}-${{ matrix.arch }}
+          path: |
+            client/build/relay-client-${{ matrix.type }}-${{ matrix.arch }}${{ matrix.ext }}
+            client/build/relay-client-${{ matrix.type }}-${{ matrix.arch }}${{ matrix.ext }}.sha256
+
+  docker-server:
+    name: Build Server Docker Image (${{ matrix.os }}-${{ matrix.arch }})
+    needs: build-server
+    if: startsWith(github.ref, 'refs/tags/v')
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            arch: amd64
+            target: linux-amd64
+          - os: ubuntu-24.04-arm
+            arch: arm64
+            target: linux-arm64
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            /*
+            !.*/**/:*
+            !**/.*/**/:*
+          sparse-checkout-cone-mode: false
+
+      - name: Download Artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: relay-server-${{ matrix.target }}
+          path: server/build
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image (arch-specific)
+        run: |
+          TAG=${{ github.ref_name }}
+          IMAGE_ID=ghcr.io/${{ github.repository }}/server
+          
+          cat <<EOF > server/src/main/docker/Dockerfile.native.arch
+          FROM bellsoft/alpaquita-linux-base:glibc
+          WORKDIR /work/
+          RUN chown 1001 /work && chmod "g+rwX" /work && chown 1001:root /work
+          COPY --chown=1001:root server/build/relay-server-${{ matrix.target }} /work/application
+          RUN chmod +x /work/application
+          EXPOSE 8080
+          USER 1001
+          ENTRYPOINT ["./application", "-Dquarkus.http.host=0.0.0.0"]
+          EOF
+          
+          docker buildx build \
+            --platform linux/${{ matrix.arch }} \
+            --push \
+            --tag $IMAGE_ID:$TAG-${{ matrix.arch }} \
+            -f server/src/main/docker/Dockerfile.native.arch .
+
+  docker-manifest:
+    name: Push Multi-arch Docker Manifest
+    needs: docker-server
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    steps:
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create and push manifest
+        run: |
+          TAG=${{ github.ref_name }}
+          IMAGE_ID=ghcr.io/${{ github.repository }}/server
+          
+          docker buildx imagetools create -t $IMAGE_ID:$TAG \
+            $IMAGE_ID:$TAG-amd64 \
+            $IMAGE_ID:$TAG-arm64
+          
+          docker buildx imagetools create -t $IMAGE_ID:latest \
+            $IMAGE_ID:$TAG-amd64 \
+            $IMAGE_ID:$TAG-arm64
+
+  release:
+    name: Create GitHub Release
+    needs: [ build-server, build-client ]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: read
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v7
+        with:
+          path: artifacts
+
+      - name: Prepare Release Assets
+        run: |
+          mkdir release-assets
+          find artifacts -type f \( -not -name "*.sha256" \) -exec cp {} release-assets/ \;
+          find artifacts -type f \( -name "*.sha256" \) -exec cp {} release-assets/ \;
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-assets/*
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

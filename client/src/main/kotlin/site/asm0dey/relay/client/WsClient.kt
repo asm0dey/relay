@@ -23,7 +23,7 @@ import java.lang.reflect.Type
 
 @WebSocketClient(path = "/ws/{secret}")
 @Singleton
-class WsClient @Inject constructor(parseResult: ParseResult, vertx: Vertx) {
+open class WsClient @Inject constructor(parseResult: ParseResult, vertx: Vertx) {
 
     val webClient = WebClient.create(vertx)
     val localHost = parseResult.matchedOption("l")?.getValue<String>() ?: "localhost"

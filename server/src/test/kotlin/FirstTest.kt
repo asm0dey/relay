@@ -2,32 +2,44 @@ package site.asm0dey.relay.server
 
 import com.github.tomakehurst.wiremock.client.WireMock
 import com.github.tomakehurst.wiremock.client.WireMock.*
-import com.github.tomakehurst.wiremock.extension.ResponseTransformerV2
-import com.github.tomakehurst.wiremock.http.Response
-import com.github.tomakehurst.wiremock.stubbing.ServeEvent
 import io.quarkiverse.wiremock.devservice.ConnectWireMock
 import io.quarkiverse.wiremock.devservice.WireMockConfigKey
 import io.quarkus.test.common.http.TestHTTPResource
 import io.quarkus.test.junit.QuarkusTest
 import io.quarkus.websockets.next.WebSocketConnector
 import io.restassured.RestAssured.given
+import io.smallrye.mutiny.coroutines.awaitSuspending
+import io.vertx.core.buffer.Buffer
 import jakarta.annotation.Priority
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.enterprise.inject.Alternative
 import jakarta.enterprise.inject.Produces
 import jakarta.inject.Inject
+import jakarta.inject.Provider
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.runBlocking
 import org.eclipse.microprofile.config.inject.ConfigProperty
+import org.hamcrest.MatcherAssert.assertThat
+import org.hamcrest.Matchers.matchesRegex
 import org.hamcrest.core.Is.`is`
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertNotNull
 import picocli.CommandLine
 import site.asm0dey.relay.client.Client
 import site.asm0dey.relay.client.WsClient
+import site.asm0dey.relay.domain.Control
+import site.asm0dey.relay.domain.Control.ControlPayload.ControlAction.REGISTER
+import site.asm0dey.relay.domain.Envelope
+import site.asm0dey.relay.domain.toByteArray
 import java.net.URI
+import java.util.*
 
 
 @QuarkusTest
 @ConnectWireMock
 class FirstTest {
+
     @TestHTTPResource
     lateinit var baseUri: URI
 
@@ -59,6 +71,10 @@ class FirstTest {
 
     @Inject
     lateinit var connector: WebSocketConnector<WsClient>
+
+    @Inject
+    lateinit var client: Provider<WsClient>
+
 
     @Test
     fun testGet() {
@@ -296,27 +312,62 @@ class FirstTest {
             .body(`is`("Internal Server Error"))
     }
 
+    @Test
+    fun testConnectionFailsWithWrongSecret() {
+        runBlocking {
+            val connection = connector.baseUri(URI(baseUri()))
+                .pathParam("secret", "WrongSecret")
+                .customizeOptions { connectOptions, _ ->
+                    connectOptions.addHeader("domain", "test")
+                }
+                .connectAndAwait()
+
+            // Wait for the server to close the connection
+            delay(100)
+
+            // The connection should be closed by the server due to invalid secret
+            assertTrue(connection.isClosed, "Connection should be closed with wrong secret")
+
+            // Verify the close reason
+            val closeReason = connection.closeReason()
+            assertTrue(closeReason != null, "Close reason should be present")
+            assertTrue(closeReason?.code == 1008, "Close code should be 1008 (Policy Violation)")
+            assertTrue(closeReason?.message?.contains("Invalid") == true, "Close reason should mention invalid secret")
+        }
+    }
+
+    @Test
+    fun testRandomDomainAssignmentWithoutHeader() {
+        runBlocking {
+
+            val connection = connector.baseUri(URI(baseUri()))
+                .pathParam("secret", "Secret")
+                .connectAndAwait()
+
+            // Send a REGISTER message
+            val registerMsg = Envelope(
+                correlationId = UUID.randomUUID().toString(),
+                payload = Control(Control.ControlPayload(REGISTER))
+            )
+            connection.sendBinary(Buffer.buffer(registerMsg.toByteArray())).awaitSuspending()
+
+            // Wait for the response
+            delay(200)
+
+            // Get the assigned subdomain from the TestWsClient
+            val assignedSubdomain = client.get().assignedSubdomain
+
+            assertNotNull(assignedSubdomain, "Subdomain should not be null")
+            assertThat(
+                "Subdomain should be 5 alphanumeric characters, got: $assignedSubdomain",
+                assignedSubdomain,
+                matchesRegex("^[a-z0-9]{5}$")
+            )
+        }
+    }
+
     private fun baseUri(): String {
         val wsUri = baseUri.toString().replace("http://", "ws://").replace("localhost", "127.0.0.1")
         return wsUri
     }
-}
-
-
-class RequestSizeTransformer() : ResponseTransformerV2 {
-
-    override fun getName(): String = "request-size-transformer"
-
-    override fun transform(
-        response: Response,
-        serveEvent: ServeEvent
-    ): Response? {
-        val bodySize = serveEvent.request.body.size
-        return Response.Builder.like(response)
-            .but()
-            .body("Request body size: $bodySize bytes")
-            .build()
-    }
-
-    override fun applyGlobally(): Boolean = false
 }

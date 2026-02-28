@@ -1,4 +1,0 @@
-port = 8080
-host = "0.0.0.0"
-domain = "domain.example.com"
-allowed_secret_keys = ["Secret"]

@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalTime::class)
+
 package site.asm0dey.relay.server
 
 import io.quarkus.runtime.ShutdownEvent
@@ -14,6 +16,7 @@ import java.lang.reflect.Type
 import java.time.Duration
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.time.ExperimentalTime
 
 
 @Singleton
@@ -46,7 +49,7 @@ class SocketService() {
     fun onClose(connection: WebSocketConnection) {
         pendingRequests
             .filter { it.key.id.startsWith(connection.userData().get(domainString)) }
-            .forEach { it.value.completeExceptionally(IllegalStateException("Client disconnected"))}
+            .forEach { it.value.completeExceptionally(IllegalStateException("Client disconnected")) }
     }
 
     private fun generateRandomSubdomain(): String {

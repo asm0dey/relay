@@ -20,7 +20,7 @@ jobs:
             !**/.*/**/:*
           sparse-checkout-cone-mode: false
 
-      - name: Set up JDK 21
+      - name: Set up JDK 25
         uses: actions/setup-java@v5
         with:
           java-version: '25'
@@ -28,7 +28,11 @@ jobs:
           cache: 'maven'
 
       - name: Run tests
-        run: ./mvnw test
+        timeout-minutes: 15
+        env:
+          MAVEN_OPTS: "-Djava.net.preferIPv4Stack=true -Xmx1g"
+          JAVA_TOOL_OPTIONS: "-Djava.net.preferIPv4Stack=true -Xmx1g"
+        run: ./mvnw verify
 
   build-server:
     name: Build Server (${{ matrix.os }}-${{ matrix.arch }})
@@ -63,21 +67,21 @@ jobs:
           cache: 'maven'
 
       - name: Build Native Server
-        run: ./mvnw :server:build -Dquarkus.package.type=native -xtest
+        run: ./mvnw package -pl server -am -Dquarkus.package.type=native -Dmaven.test.skip=true
 
       - name: Rename artifact
         run: |
-          mv server/build/server-1.0.0-SNAPSHOT-runner server/build/relay-server-${{ matrix.target }}
-          chmod +x server/build/relay-server-${{ matrix.target }}
-          sha256sum server/build/relay-server-${{ matrix.target }} > server/build/relay-server-${{ matrix.target }}.sha256
+          mv server/target/server-1.0.0-SNAPSHOT-runner server/target/relay-server-${{ matrix.target }}
+          chmod +x server/target/relay-server-${{ matrix.target }}
+          sha256sum server/target/relay-server-${{ matrix.target }} > server/target/relay-server-${{ matrix.target }}.sha256
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v6
         with:
           name: relay-server-${{ matrix.target }}
           path: |
-            server/build/relay-server-${{ matrix.target }}
-            server/build/relay-server-${{ matrix.target }}.sha256
+            server/target/relay-server-${{ matrix.target }}
+            server/target/relay-server-${{ matrix.target }}.sha256
 
   build-client:
     name: Build Client (${{ matrix.os }}-${{ matrix.arch }})
@@ -136,20 +140,20 @@ jobs:
 
       - name: Build Native Client
         shell: bash
-        run: ./mvnw :client:build -Dquarkus.package.type=native -xtest
+        run: ./mvnw clean package -pl client -am -Dquarkus.package.type=native -Dmaven.test.skip=true
 
       - name: Prepare Artifact
         shell: bash
         run: |
           BIN_NAME=relay-client-${{ matrix.type }}-${{ matrix.arch }}${{ matrix.ext }}
-          mv client/build/client-1.0.0-SNAPSHOT-runner client/build/$BIN_NAME
+          mv client/target/client-1.0.0-SNAPSHOT-runner client/build/$BIN_NAME
           if [ "${{ matrix.os }}" != "windows-latest" ]; then
-            chmod +x client/build/$BIN_NAME
+            chmod +x client/target/$BIN_NAME
           fi
           if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            certutil -hashfile client/build/$BIN_NAME SHA256 | grep -v "hash" | grep -v "CertUtil" | tr -d ' \n\r' > client/build/$BIN_NAME.sha256
+            certutil -hashfile client/target/$BIN_NAME SHA256 | grep -v "hash" | grep -v "CertUtil" | tr -d ' \n\r' > client/build/$BIN_NAME.sha256
           else
-            sha256sum client/build/$BIN_NAME > client/build/$BIN_NAME.sha256
+            sha256sum client/target/$BIN_NAME > client/build/$BIN_NAME.sha256
           fi
 
       - name: Upload Artifact
@@ -157,8 +161,8 @@ jobs:
         with:
           name: relay-client-${{ matrix.type }}-${{ matrix.arch }}
           path: |
-            client/build/relay-client-${{ matrix.type }}-${{ matrix.arch }}${{ matrix.ext }}
-            client/build/relay-client-${{ matrix.type }}-${{ matrix.arch }}${{ matrix.ext }}.sha256
+            client/target/relay-client-${{ matrix.type }}-${{ matrix.arch }}${{ matrix.ext }}
+            client/target/relay-client-${{ matrix.type }}-${{ matrix.arch }}${{ matrix.ext }}.sha256
 
   docker-server:
     name: Build Server Docker Image (${{ matrix.os }}-${{ matrix.arch }})
@@ -191,10 +195,7 @@ jobs:
         uses: actions/download-artifact@v7
         with:
           name: relay-server-${{ matrix.target }}
-          path: server/build
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+          path: server/target
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3

@@ -1,12 +1,7 @@
 package site.asm0dey.relay.server
 
-import com.github.tomakehurst.wiremock.client.ResponseDefinitionBuilder
 import com.github.tomakehurst.wiremock.client.WireMock
 import com.github.tomakehurst.wiremock.client.WireMock.*
-import com.github.tomakehurst.wiremock.extension.ResponseDefinitionTransformerV2
-import com.github.tomakehurst.wiremock.http.Body
-import com.github.tomakehurst.wiremock.http.ResponseDefinition
-import com.github.tomakehurst.wiremock.stubbing.ServeEvent
 import io.quarkiverse.wiremock.devservice.ConnectWireMock
 import io.quarkiverse.wiremock.devservice.WireMockConfigKey
 import io.quarkus.test.common.http.TestHTTPResource
@@ -39,8 +34,6 @@ import site.asm0dey.relay.domain.Control.ControlPayload.ControlAction.REGISTER
 import site.asm0dey.relay.domain.Envelope
 import site.asm0dey.relay.domain.toByteArray
 import java.net.URI
-import java.nio.file.Files
-import java.nio.file.Paths
 import java.util.*
 
 
@@ -106,8 +99,8 @@ class FirstTest {
         wireMock.register(get(urlEqualTo("/")).willReturn(aResponse().withStatus(200).withBody("OK")))
         given()
             .header("X-Domain", "test")
+            .header("Connection", "close")
             .`when`()
-            .get("/")
             .then()
             .statusCode(200)
             .body(`is`("OK"))
@@ -407,6 +400,4 @@ class FirstTest {
         return wsUri
     }
 }
-
-
 

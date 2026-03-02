@@ -1,0 +1,1 @@
+server/src/test/resources/__files/my-big-file.bin filter=lfs diff=lfs merge=lfs -text

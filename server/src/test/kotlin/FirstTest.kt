@@ -1,7 +1,12 @@
 package site.asm0dey.relay.server
 
+import com.github.tomakehurst.wiremock.client.ResponseDefinitionBuilder
 import com.github.tomakehurst.wiremock.client.WireMock
 import com.github.tomakehurst.wiremock.client.WireMock.*
+import com.github.tomakehurst.wiremock.extension.ResponseDefinitionTransformerV2
+import com.github.tomakehurst.wiremock.http.Body
+import com.github.tomakehurst.wiremock.http.ResponseDefinition
+import com.github.tomakehurst.wiremock.stubbing.ServeEvent
 import io.quarkiverse.wiremock.devservice.ConnectWireMock
 import io.quarkiverse.wiremock.devservice.WireMockConfigKey
 import io.quarkus.test.common.http.TestHTTPResource
@@ -22,6 +27,7 @@ import org.eclipse.microprofile.config.inject.ConfigProperty
 import org.hamcrest.MatcherAssert.assertThat
 import org.hamcrest.Matchers.matchesRegex
 import org.hamcrest.core.Is.`is`
+import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertNotNull
@@ -33,6 +39,8 @@ import site.asm0dey.relay.domain.Control.ControlPayload.ControlAction.REGISTER
 import site.asm0dey.relay.domain.Envelope
 import site.asm0dey.relay.domain.toByteArray
 import java.net.URI
+import java.nio.file.Files
+import java.nio.file.Paths
 import java.util.*
 
 
@@ -366,8 +374,39 @@ class FirstTest {
         }
     }
 
+    @Test
+    fun testTransformerIsApplied() {
+        // Verify the transformer is being called by wiremock
+
+
+        wireMock.register(
+            post("/test-transform")
+                .willReturn(
+                    aResponse()
+                        .withStatus(200)
+                        .withBodyFile("my-big-file.bin")
+                )
+        )
+
+        val asByteArray = given()
+            .post("http://localhost:$wiremockPort/test-transform")
+            .then()
+            .statusCode(200)
+            .extract()
+            .body()
+            .asByteArray()
+        val expectedBytes = this::class.java.classLoader.getResourceAsStream("/__files/my-big-file.bin")!!.readAllBytes();
+        assertArrayEquals(expectedBytes, asByteArray)
+
+        // Verify transformer was called
+    }
+
+
     private fun baseUri(): String {
         val wsUri = baseUri.toString().replace("http://", "ws://").replace("localhost", "127.0.0.1")
         return wsUri
     }
 }
+
+
+

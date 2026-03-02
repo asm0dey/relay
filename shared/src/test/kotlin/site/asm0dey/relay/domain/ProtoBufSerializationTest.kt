@@ -1,5 +1,9 @@
+@file:OptIn(ExperimentalSerializationApi::class)
+
 package site.asm0dey.relay.domain
 
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.protobuf.ProtoBuf
 import org.junit.jupiter.api.Test
 import site.asm0dey.relay.domain.Control.ControlPayload.ControlAction.REGISTER
 import kotlin.test.assertEquals
@@ -452,5 +456,93 @@ class ProtoBufSerializationTest {
         assertTrue(Envelope.fromByteArray(requestBytes).payload is Request)
         assertTrue(Envelope.fromByteArray(responseBytes).payload is Response)
         assertTrue(Envelope.fromByteArray(errorBytes).payload is Error)
+    }
+
+    @Test
+    fun `serialize and deserialize StreamErrorCode`() {
+        val code = StreamErrorCode.UPSTREAM_TIMEOUT
+        val bytes = ProtoBuf.encodeToByteArray(StreamErrorCode.serializer(), code)
+        val deserialized = ProtoBuf.decodeFromByteArray(StreamErrorCode.serializer(), bytes)
+        assertEquals(code, deserialized)
+    }
+
+    @Test
+    fun `serialize and deserialize StreamInit`() {
+        val init = Envelope(
+            correlationId = "test-id",
+            payload = StreamInit(StreamInit.StreamInitPayload(
+                correlationId = "test-id",
+                contentType = "application/pdf",
+                contentLength = 10485760L
+            ))
+        )
+        val bytes = init.toByteArray()
+        val deserialized = bytes.toEnvelope()
+        assertEquals(init.correlationId, deserialized.correlationId)
+        assertTrue(deserialized.payload is StreamInit)
+        val streamInit = deserialized.payload
+        assertEquals("test-id", streamInit.value.correlationId)
+        assertEquals("application/pdf", streamInit.value.contentType)
+        assertEquals(10485760L, streamInit.value.contentLength)
+    }
+
+    @Test
+    fun `serialize and deserialize StreamChunk`() {
+        val chunk = Envelope(
+            correlationId = "test-id",
+            payload = StreamChunk(StreamChunk.StreamChunkPayload(
+                correlationId = "test-id",
+                chunkIndex = 5,
+                data = ByteArray(1024) { it.toByte() },
+                isLast = false
+            ))
+        )
+        val bytes = chunk.toByteArray()
+        val deserialized = bytes.toEnvelope()
+        assertEquals(chunk.correlationId, deserialized.correlationId)
+        assertTrue(deserialized.payload is StreamChunk)
+        val streamChunk = deserialized.payload
+        assertEquals("test-id", streamChunk.value.correlationId)
+        assertEquals(5L, streamChunk.value.chunkIndex)
+        assertTrue(streamChunk.value.data.contentEquals(ByteArray(1024) { it.toByte() }))
+        assertEquals(false, streamChunk.value.isLast)
+    }
+
+    @Test
+    fun `serialize and deserialize StreamAck`() {
+        val ack = Envelope(
+            correlationId = "test-id",
+            payload = StreamAck(StreamAck.StreamAckPayload(
+                correlationId = "test-id",
+                chunkIndex = 5
+            ))
+        )
+        val bytes = ack.toByteArray()
+        val deserialized = bytes.toEnvelope()
+        assertEquals(ack.correlationId, deserialized.correlationId)
+        assertTrue(deserialized.payload is StreamAck)
+        val streamAck = deserialized.payload
+        assertEquals("test-id", streamAck.value.correlationId)
+        assertEquals(5L, streamAck.value.chunkIndex)
+    }
+
+    @Test
+    fun `serialize and deserialize StreamError`() {
+        val error = Envelope(
+            correlationId = "test-id",
+            payload = StreamError(StreamError.StreamErrorPayload(
+                correlationId = "test-id",
+                code = StreamErrorCode.UPSTREAM_TIMEOUT,
+                message = "Local app stopped responding"
+            ))
+        )
+        val bytes = error.toByteArray()
+        val deserialized = bytes.toEnvelope()
+        assertEquals(error.correlationId, deserialized.correlationId)
+        assertTrue(deserialized.payload is StreamError)
+        val streamError = deserialized.payload
+        assertEquals("test-id", streamError.value.correlationId)
+        assertEquals(StreamErrorCode.UPSTREAM_TIMEOUT, streamError.value.code)
+        assertEquals("Local app stopped responding", streamError.value.message)
     }
 }

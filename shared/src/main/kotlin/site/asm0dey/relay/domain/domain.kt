@@ -130,6 +130,69 @@ data class Error(@ProtoNumber(14) val value: ErrorPayload) : Payload {
     )
 }
 
+@Serializable
+data class StreamInit(@ProtoNumber(15) val value: StreamInitPayload) : Payload {
+    @Serializable
+    data class StreamInitPayload(
+        @ProtoNumber(1) val correlationId: String,
+        @ProtoNumber(2) val contentType: String? = null,
+        @ProtoNumber(3) val contentLength: Long? = null,
+        @ProtoNumber(4) val headers: Map<String, String> = hashMapOf()
+    )
+}
+
+@Serializable
+data class StreamChunk(@ProtoNumber(16) val value: StreamChunkPayload) : Payload {
+    @Serializable
+    data class StreamChunkPayload(
+        @ProtoNumber(1) val correlationId: String,
+        @ProtoNumber(2) val chunkIndex: Long,
+        @ProtoNumber(3) val data: ByteArray,
+        @ProtoNumber(4) val isLast: Boolean = false
+    ) {
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (javaClass != other?.javaClass) return false
+
+            other as StreamChunkPayload
+
+            if (correlationId != other.correlationId) return false
+            if (chunkIndex != other.chunkIndex) return false
+            if (!data.contentEquals(other.data)) return false
+            if (isLast != other.isLast) return false
+
+            return true
+        }
+
+        override fun hashCode(): Int {
+            var result = correlationId.hashCode()
+            result = 31 * result + chunkIndex.hashCode()
+            result = 31 * result + data.contentHashCode()
+            result = 31 * result + isLast.hashCode()
+            return result
+        }
+    }
+}
+
+@Serializable
+data class StreamAck(@ProtoNumber(18) val value: StreamAckPayload) : Payload {
+    @Serializable
+    data class StreamAckPayload(
+        @ProtoNumber(1) val correlationId: String,
+        @ProtoNumber(2) val chunkIndex: Long
+    )
+}
+
+@Serializable
+data class StreamError(@ProtoNumber(17) val value: StreamErrorPayload) : Payload {
+    @Serializable
+    data class StreamErrorPayload(
+        @ProtoNumber(1) val correlationId: String,
+        @ProtoNumber(2) val code: StreamErrorCode,
+        @ProtoNumber(3) val message: String
+    )
+}
+
 private val proto = ProtoBuf {}
 
 @Suppress("unused")
@@ -144,4 +207,16 @@ fun ByteArray.toEnvelope(): Envelope = proto.decodeFromByteArray(this)
 @Serializable
 enum class ErrorCode {
     TIMEOUT, UPSTREAM_ERROR, INVALID_REQUEST, SERVER_ERROR, RATE_LIMITED, PROTOCOL_ERROR
+}
+
+@Serializable
+enum class StreamErrorCode {
+    CHUNK_OUT_OF_ORDER,
+    CHUNK_MISSING,
+    STREAM_CANCELLED,
+    TIMEOUT,
+    INVALID_REQUEST,
+    PROTOCOL_ERROR,
+    UPSTREAM_TIMEOUT,
+    UPSTREAM_ERROR
 }

@@ -20,6 +20,7 @@ import site.asm0dey.relay.domain.*
 import site.asm0dey.relay.domain.Control.ControlPayload.ControlAction.*
 import site.asm0dey.relay.domain.Response.ResponsePayload
 import java.lang.reflect.Type
+import java.util.concurrent.ConcurrentHashMap
 
 @WebSocketClient(path = "/ws/{secret}")
 @Singleton
@@ -31,6 +32,7 @@ open class WsClient @Inject constructor(parseResult: ParseResult, vertx: Vertx) 
     val url = "http://$localHost:$localPort"
     lateinit var connection: WebSocketClientConnection
     var assignedSubdomain: String? = null
+    val activeStreams = ConcurrentHashMap<String, StreamingSender>()
 
 
     @Suppress("unused")
@@ -87,6 +89,15 @@ open class WsClient @Inject constructor(parseResult: ParseResult, vertx: Vertx) 
             }
 
             is Response -> throw IllegalStateException("Response $message is not expected to be received here")
+            is StreamAck -> {
+                val ack = payload.value
+                activeStreams[ack.correlationId]?.onAck(ack)
+            }
+            is StreamError -> {
+                val error = payload.value
+                activeStreams[error.correlationId]?.onError(error)
+            }
+            is StreamInit, is StreamChunk -> TODO("Handle stream messages from server")
         }
     }
 }

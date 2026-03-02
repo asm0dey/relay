@@ -32,6 +32,9 @@ class SocketService() {
     @Inject
     lateinit var serverConfig: ServerConfig
 
+    @Inject
+    lateinit var streamManager: StreamManager
+
     @OnOpen
     suspend fun onConnect(connection: WebSocketConnection, @PathParam secret: String) {
         if (secret !in serverConfig.allowedSecretKeys) {
@@ -47,6 +50,8 @@ class SocketService() {
 
     @OnClose
     fun onClose(connection: WebSocketConnection) {
+        val clientId = connection.id()
+        streamManager.cleanupForConnection(clientId)
         pendingRequests
             .filter { it.key.id.startsWith(connection.userData().get(domainString)) }
             .forEach { it.value.completeExceptionally(IllegalStateException("Client disconnected")) }
@@ -100,9 +105,32 @@ class SocketService() {
                 if (envelope.payload !is Response) throw IllegalStateException("Expected response message, got $envelope")
                 deferred.complete(envelope)
             } else {
-                when (envelope.payload) {
+                when (val payload = envelope.payload) {
                     is Control -> {}
                     is Error -> TODO()
+                    is StreamInit -> {
+                        val init = payload.value
+                        val clientId = connection.id()
+                        streamManager.initiateStream(init.correlationId, clientId, init)
+                    }
+                    is StreamChunk -> {
+                        val chunk = payload.value
+                        val result = streamManager.receiveChunk(chunk.correlationId, chunk)
+                        if (result.isSuccess) {
+                            // Send ACK
+                            sendAck(connection, chunk.correlationId, chunk.chunkIndex)
+                            // TODO: Forward chunk to HTTP client (will be done in HTTP integration phase)
+                        }
+                    }
+                    is StreamAck -> {
+                        // Server doesn't need to process ACKs (client sends ACKs)
+                        // This is here for completeness - ACKs are client->server
+                    }
+                    is StreamError -> {
+                        val error = payload.value
+                        streamManager.cleanup(error.correlationId)
+                        // TODO: Forward error to HTTP client (will be done in HTTP integration phase)
+                    }
                     is Request -> throw IllegalStateException("Server is not expected to receiver requests, but got $envelope")
                     is Response -> throw IllegalStateException("Response $envelope is not expected to be received here")
                 }
@@ -123,6 +151,16 @@ class SocketService() {
         }
     }
 
+    suspend fun sendAck(connection: WebSocketConnection, correlationId: String, chunkIndex: Long) {
+        val ack = Envelope(
+            correlationId = correlationId,
+            payload = StreamAck(StreamAck.StreamAckPayload(correlationId, chunkIndex))
+        )
+        withTimeout(5000) {
+            connection.sendBinary(ack.toByteArray()).awaitSuspending()
+        }
+    }
+
 
     fun onStop(@Observes ev: ShutdownEvent?) {
         val message = Envelope(
@@ -139,6 +177,7 @@ class SocketService() {
                 b.await().atMost(Duration.ofSeconds(5))
             }
         pendingRequests.values.forEach { it.completeExceptionally(IllegalStateException("Server is shutting down")) }
+        streamManager.cleanupAll()
     }
 
 }

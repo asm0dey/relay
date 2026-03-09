@@ -10,7 +10,7 @@ on:
 jobs:
   test:
     name: Run Tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v6
       - name: Set up JDK 25
@@ -19,23 +19,23 @@ jobs:
           java-version: '25'
           distribution: 'liberica'
           cache: 'maven'
-
-      - name: Run tests and collect thread dumps
-        uses: qoomon/actions--parallel-steps@v1
-        timeout-minutes: 4
-        with:
-          steps: |
-            - name: Run tests
-              run: ./mvnw -B -e verify -Daether.dependencyCollector.impl=bf
-            - name: Thread dump collection
-              run: |
-                sleep 180
-                mkdir -p thread-dumps
-                for pid in $(pgrep java); do
-                  echo "Collecting thread dump for PID $pid"
-                  jstack $pid | tee thread-dumps/thread-dump-$pid-$(date +%Y%m%d-%H%M%S).txt || true
-                done
-
+      - name: Run tests
+        run: ./mvnw -B -e verify -Daether.dependencyCollector.impl=bf
+#      - name: Run tests and collect thread dumps
+#        uses: qoomon/actions--parallel-steps@v1
+#        timeout-minutes: 4
+#        with:
+#          steps: |
+#            - name: Run tests
+#              run: ./mvnw -B -e verify -Daether.dependencyCollector.impl=bf
+#            - name: Thread dump collection
+#              run: |
+#                sleep 180
+#                mkdir -p thread-dumps
+#                for pid in $(pgrep java); do
+#                  echo "Collecting thread dump for PID $pid"
+#                  jstack $pid | tee thread-dumps/thread-dump-$pid-$(date +%Y%m%d-%H%M%S).txt || true
+#                done
       - name: Upload thread dumps
         if: failure()
         uses: actions/upload-artifact@v6

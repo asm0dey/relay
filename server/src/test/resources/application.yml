@@ -1,0 +1,14 @@
+relay:
+  allowed-secret-keys:
+    - secret
+quarkus:
+  http:
+    test-port: 9900
+    port: 9901
+  grpc:
+    server:
+      enable-reflection-service: true
+      test-port: 9902
+      use-separate-server: true
+      is-plain-text-enabled: true
+      instances: 1

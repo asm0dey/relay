@@ -8,7 +8,6 @@
     <modules>
         <module>client</module>
         <module>server</module>
-        <module>shared</module>
     </modules>
 
     <properties>
@@ -23,6 +22,9 @@
         <skipITs>true</skipITs>
         <surefire-plugin.version>3.5.5</surefire-plugin.version>
         <serialization.version>1.10.0</serialization.version>
+        <grpc.kotlin.version>6f774052d1d6923f8af2e0023886d69949b695ee</grpc.kotlin.version>
+        <grpc.version>1.79.0</grpc.version>
+        <protobuf.version>4.33.2</protobuf.version>
     </properties>
 
     <dependencyManagement>

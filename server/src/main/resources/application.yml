@@ -1,0 +1,42 @@
+main-class: site.asm0dey.relay.server.Main
+quarkus:
+  grpc:
+    server:
+      use-separate-server: false
+      max-inbound-message-size: 5242880
+  http:
+    port: 8080
+  package:
+    main-class: server
+  websockets-next:
+    server:
+      auto-ping-interval: 30s
+  index-dependency:
+    grpc-kotlin:
+      group-id: io.grpc
+      artifact-id: grpc-kotlin-stub
+#  log:
+#    category:
+#      "io.quarkus.grpc":
+#        level: DEBUG
+#      "javax":
+#        level: INFO
+#      "io.netty":
+#        level: INFO
+#      "jdk":
+#        level: INFO
+#      "io.smallrye":
+#        level: INFO
+#      "org.jboss":
+#        level: INFO
+#      "org.junit":
+#        level: INFO
+#      "org.eclipse":
+#        level: INFO
+#      "io.quarkiverse.wiremock":
+#        level: INFO
+#    level: DEBUG
+relay:
+  domain: tunnel.example.com
+  allowed-secret-keys: []
+

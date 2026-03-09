@@ -1,100 +1,68 @@
 package site.asm0dey.relay.client
 
+import io.quarkus.picocli.runtime.annotations.TopCommand
 import io.quarkus.runtime.Quarkus
 import io.quarkus.runtime.QuarkusApplication
 import io.quarkus.runtime.annotations.QuarkusMain
-import io.quarkus.websockets.next.WebSocketClientConnection
-import io.quarkus.websockets.next.WebSocketConnector
-import io.smallrye.mutiny.coroutines.awaitSuspending
 import jakarta.inject.Inject
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import picocli.CommandLine
-import site.asm0dey.relay.domain.Control
-import site.asm0dey.relay.domain.Control.ControlPayload.ControlAction.REGISTER
-import site.asm0dey.relay.domain.Envelope
-import site.asm0dey.relay.domain.toByteArray
-import java.util.*
+import kotlin.properties.Delegates
 
-@QuarkusMain(name = "client")
-@CommandLine.Command
-class Client constructor() : Runnable, QuarkusApplication {
-    @CommandLine.Parameters(index = "0", paramLabel = "PORT", arity = "1", description = ["Port to listen on"])
-    var localPort: Int? = null
+@TopCommand
+@CommandLine.Command(mixinStandardHelpOptions = true)
+open class ClientConfig : Runnable {
+    @set:CommandLine.Parameters(
+        index = "0",
+        paramLabel = "PORT",
+        arity = "1",
+        description = ["Port to listen on"],
+        defaultValue = "8081"
+    )
+    var localPort: Int by Delegates.notNull()
 
-    @CommandLine.Option(names = ["--remote-port", "-r"], defaultValue = "443", required = true)
-    var remotePort: Int? = null
+    @set:CommandLine.Option(names = ["--remote-port", "-r"], defaultValue = "443", required = true)
+    var remotePort: Int by Delegates.notNull()
 
-    @CommandLine.Option(names = ["--remote-host", "-h"], required = true)
-    var remoteHost: String = "localhost"
+    @set:CommandLine.Option(names = ["--remote-host", "-h"], required = true)
+    var remoteHost: String by Delegates.notNull()
 
-    @CommandLine.Option(names = ["--domain", "-d"])
-    var domain: String? = null
+    @set:CommandLine.Option(names = ["--domain", "-d"], defaultValue = "test")
+    var domain: String by Delegates.notNull()
 
-    @CommandLine.Option(names = ["--local-host", "-l"], defaultValue = "localhost")
-    var localHost: String? = null
+    @set:CommandLine.Option(names = ["--local-host", "-l"], defaultValue = "localhost")
+    var localHost: String by Delegates.notNull()
 
-    @CommandLine.Option(names = ["--secret", "-s"], required = true)
-    lateinit var secret: String
+    @set:CommandLine.Option(names = ["--secret", "-s"], required = true, defaultValue = "secret")
+    var secret: String by Delegates.notNull()
 
-    @CommandLine.Option(names = ["--insecure"], defaultValue = "false", required = true)
-    var insecure: Boolean = false
-
-    @Inject
-    lateinit var connector: WebSocketConnector<WsClient>
-
+    @set:CommandLine.Option(names = ["--insecure"], defaultValue = "false", required = true)
+    var insecure: Boolean by Delegates.notNull()
 
     override fun run() {
-
-
-        val scheme = if (insecure) "ws" else "wss"
-        val uri = "$scheme://$remoteHost:$remotePort/"
-
-        val connection = connector
-            .baseUri(uri)
-            .pathParam("secret", secret)
-            .customizeOptions { connectOptions, _ ->
-                connectOptions.addHeader("domain", domain)
-            }
-            .connectAndAwait()
-
-        Runtime.getRuntime().addShutdownHook(Thread {
-            val unregisterMsg = Envelope(
-                correlationId = UUID.randomUUID().toString(),
-                payload = Control(Control.ControlPayload(Control.ControlPayload.ControlAction.UNREGISTER))
-            )
-            connection.sendBinary(unregisterMsg.toByteArray()).await()
-        })
-
-        runBlocking {
-            connection.sendRegister()
-            launch {
-                while (true) {
-                    delay(30000)
-                    val heartbeat = Envelope(
-                        correlationId = UUID.randomUUID().toString(),
-                        payload = Control(Control.ControlPayload(Control.ControlPayload.ControlAction.HEARTBEAT))
-                    )
-                    connection.sendBinary(heartbeat.toByteArray()).awaitSuspending()
-                }
-            }
-        }
-
-        Quarkus.waitForExit()
     }
 
-    private suspend fun WebSocketClientConnection.sendRegister() {
-        val registerMsg = Envelope(
-            correlationId = UUID.randomUUID().toString(),
-            payload = Control(Control.ControlPayload(REGISTER))
-        )
-        sendBinary(registerMsg.toByteArray()).awaitSuspending()
+}
 
-    }
+@QuarkusMain
+class ClientMain : QuarkusApplication {
+    @Inject
+    lateinit var factory: CommandLine.IFactory
+
+    @Inject
+    @TopCommand
+    lateinit var config: ClientConfig
+
+    @Inject
+    lateinit var tunnelService: TunnelClient
 
     override fun run(vararg args: String?): Int {
-        return CommandLine(this).execute(*args)
+        // Parse directly into the CDI-managed instance
+        val exitCode = CommandLine(config, factory).execute(*args)
+        if (exitCode != 0) return exitCode
+
+        tunnelService.start()
+        Quarkus.waitForExit()
+        return 0
     }
 }
 

@@ -13,27 +13,14 @@ jobs:
     runs-on: ubuntu-slim
     steps:
       - uses: actions/checkout@v6
-        with:
-          sparse-checkout: |
-            /*
-            !.*/**/:*
-            !**/.*/**/:*
-          sparse-checkout-cone-mode: false
-
       - name: Set up JDK 25
         uses: actions/setup-java@v5
         with:
           java-version: '25'
           distribution: 'liberica'
           cache: 'maven'
-
       - name: Run tests
-        timeout-minutes: 15
-        env:
-          MAVEN_OPTS: "-Djava.net.preferIPv4Stack=true -Xmx1g"
-          JAVA_TOOL_OPTIONS: "-Djava.net.preferIPv4Stack=true -Xmx1g"
-        run: ./mvnw verify
-
+        run: ./mvnw -B -e verify -Daether.dependencyCollector.impl=bf
   build-server:
     name: Build Server (${{ matrix.os }}-${{ matrix.arch }})
     needs: test

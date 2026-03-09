@@ -71,9 +71,11 @@ class FirstTest @Inject constructor(
         )
     }
 
+    @Suppress("CdiInjectionPointsInspection")
     @Inject
     lateinit var connector: WebSocketConnector<WsClient>
 
+    @Suppress("CdiInjectionPointsInspection")
     @Inject
     lateinit var client: Provider<WsClient>
 
@@ -259,6 +261,7 @@ class FirstTest @Inject constructor(
             }
             .connectAndAwait()
         wireMock.register(get(urlEqualTo("/")).willReturn(aResponse().withStatus(200).withBody("Headers OK")))
+        @Suppress("UastIncorrectHttpHeaderInspection")
         given()
             .header("X-Domain", "test")
             .header("X-Custom-Header", "custom-value")
@@ -326,7 +329,7 @@ class FirstTest @Inject constructor(
             // Wait for the server to close the connection
             delay(100)
 
-            // The connection should be closed by the server due to invalid secret
+            // The server should close the connection due to an invalid secret
             assertTrue(connection.isClosed, "Connection should be closed with wrong secret")
 
             // Verify the close reason
@@ -389,7 +392,7 @@ class FirstTest @Inject constructor(
             .body()
             .asByteArray()
         val expectedBytes =
-            this::class.java.classLoader.getResourceAsStream("/__files/my-big-file.bin")!!.readAllBytes();
+            this::class.java.classLoader.getResourceAsStream("/__files/my-big-file.bin")!!.readAllBytes()
         assertArrayEquals(expectedBytes, asByteArray)
 
         // Verify transformer was called
@@ -397,7 +400,7 @@ class FirstTest @Inject constructor(
 
 
     private fun baseUri(): String {
-        val wsUri = baseUri.toString().replace("http://", "ws://").replace("localhost", "127.0.0.1")
+        @Suppress("HttpUrlsUsage") val wsUri = baseUri.toString().replace("http://", "ws://").replace("localhost", "127.0.0.1")
         return wsUri
     }
 }

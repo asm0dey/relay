@@ -10,16 +10,9 @@ on:
 jobs:
   test:
     name: Run Tests
-    runs-on: ubuntu-slim
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-        with:
-          sparse-checkout: |
-            /*
-            !.*/**/:*
-            !**/.*/**/:*
-          sparse-checkout-cone-mode: false
-
       - name: Set up JDK 25
         uses: actions/setup-java@v5
         with:
@@ -29,10 +22,22 @@ jobs:
 
       - name: Run tests
         timeout-minutes: 15
-        env:
-          MAVEN_OPTS: "-Djava.net.preferIPv4Stack=true -Xmx1g"
-          JAVA_TOOL_OPTIONS: "-Djava.net.preferIPv4Stack=true -Xmx1g"
-        run: ./mvnw verify
+        run: ./mvnw verify -Daether.dependencyCollector.impl=bf
+
+      - name: Upload thread dumps
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: thread-dumps
+          path: |
+            **/target/failsafe-reports/*.dump
+            **/target/failsafe-reports/*.dumpstream
+            **/target/surefire-reports/*.dump
+            **/target/surefire-reports/*.dumpstream
+          if-no-files-found: ignore
+
+
+
 
   build-server:
     name: Build Server (${{ matrix.os }}-${{ matrix.arch }})

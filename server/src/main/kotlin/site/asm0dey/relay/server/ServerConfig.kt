@@ -13,6 +13,9 @@ data class ServerConfig(
     val allowedSecretKeys: List<String> = listOf("Secret"),
     val maxInflightChunks: Int = 10,
     val chunkTimeout: Duration = Duration.ofSeconds(10),
+    val wsUpgradeTimeout: Duration = Duration.ofSeconds(30),
+    val wsMaxTunnels: Int = 100,
+    val wsPingInterval: Duration = Duration.ofSeconds(30),
 )
 
 @ApplicationScoped
@@ -38,6 +41,9 @@ val config: ServerConfig by lazy {
                 "allowed_secret_keys" -> conf = conf.copy(allowedSecretKeys = v.toString().split(",").map { it.trim() })
                 "max_inflight_chunks" -> conf = conf.copy(maxInflightChunks = v.toString().toInt())
                 "chunk_timeout" -> conf = conf.copy(chunkTimeout = Duration.ofMillis(v.toString().toLong()))
+                "ws_upgrade_timeout" -> conf = conf.copy(wsUpgradeTimeout = Duration.ofMillis(v.toString().toLong()))
+                "ws_max_tunnels" -> conf = conf.copy(wsMaxTunnels = v.toString().toInt())
+                "ws_ping_interval" -> conf = conf.copy(wsPingInterval = Duration.ofMillis(v.toString().toLong()))
             }
         }
         conf

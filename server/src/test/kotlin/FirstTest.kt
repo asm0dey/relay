@@ -423,8 +423,6 @@ class FirstTest @Inject constructor(
     @Test
     fun testTransformerIsApplied() {
         // Verify the transformer is being called by wiremock
-
-
         wireMock.register(
             post("/test-transform")
                 .willReturn(

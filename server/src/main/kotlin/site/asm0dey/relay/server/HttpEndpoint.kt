@@ -2,6 +2,9 @@
 
 package site.asm0dey.relay.server
 
+import io.smallrye.mutiny.Multi
+import io.smallrye.mutiny.coroutines.asFlow
+import io.smallrye.mutiny.coroutines.awaitSuspending
 import io.vertx.core.http.HttpServerRequest
 import jakarta.inject.Inject
 import jakarta.ws.rs.*
@@ -19,16 +22,17 @@ class HttpEndpoint {
     @Inject
     lateinit var socketService: SocketService
 
+    @Inject
+    lateinit var streamManager: StreamManager
+
+    @Inject
+    lateinit var serverConfig: ServerConfig
+
+    @org.eclipse.microprofile.config.inject.ConfigProperty(name = "quarkus.websockets-next.server.max-frame-size")
+    lateinit var maxFrameSize: jakarta.inject.Provider<Int>
+
     @Context
     lateinit var request: HttpServerRequest
-
-    @GET
-    suspend fun get(
-        @QueryParam("X-Domain") domain: String?,
-        @HeaderParam("X-Domain") domainHeader: String?,
-    ): RestResponse<ByteArray?> {
-        return response(makeRequest(domain, domainHeader, "GET"))
-    }
 
     @POST
     suspend fun post(
@@ -36,7 +40,7 @@ class HttpEndpoint {
         @HeaderParam("X-Domain") domainHeader: String?,
         body: ByteArray?
     ): RestResponse<ByteArray?> {
-        return response(makeRequest(domain, domainHeader, "POST", body))
+        return processStreamingRequest(domain, domainHeader, "POST", body?.let { Multi.createFrom().item(it) })
     }
 
     @PUT
@@ -45,7 +49,15 @@ class HttpEndpoint {
         @HeaderParam("X-Domain") domainHeader: String?,
         body: ByteArray?
     ): RestResponse<ByteArray?> {
-        return response(makeRequest(domain, domainHeader, "PUT", body))
+        return processStreamingRequest(domain, domainHeader, "PUT", body?.let { Multi.createFrom().item(it) })
+    }
+
+    @GET
+    suspend fun get(
+        @QueryParam("X-Domain") domain: String?,
+        @HeaderParam("X-Domain") domainHeader: String?,
+    ): RestResponse<ByteArray?> {
+        return response(makeRequest(domain, domainHeader, "GET"))
     }
 
     @HEAD
@@ -62,7 +74,7 @@ class HttpEndpoint {
         @HeaderParam("X-Domain") domainHeader: String?,
         body: ByteArray?
     ): RestResponse<ByteArray?> {
-        return response(makeRequest(domain, domainHeader, "DELETE", body))
+        return processStreamingRequest(domain, domainHeader, "DELETE", body?.let { Multi.createFrom().item(it) })
     }
 
     @OPTIONS
@@ -79,7 +91,45 @@ class HttpEndpoint {
         @HeaderParam("X-Domain") domainHeader: String?,
         body: ByteArray?
     ): RestResponse<ByteArray?> {
-        return response(makeRequest(domain, domainHeader, "PATCH", body))
+        return processStreamingRequest(domain, domainHeader, "PATCH", body?.let { Multi.createFrom().item(it) })
+    }
+
+    private suspend fun processStreamingRequest(
+        domain: String?,
+        domainHeader: String?,
+        method: String,
+        body: Multi<ByteArray>?
+    ): RestResponse<ByteArray?> {
+        val contentLength = request.getHeader("Content-Length")?.toLongOrNull()
+        val isStreaming = body != null && (contentLength == null || contentLength > maxFrameSize.get())
+
+        return if (isStreaming) {
+            val host = extractHost(domain, domainHeader)
+            val streamId = "$host-${randomUUID()}"
+            val sender = StreamingSender(socketService, host, streamId, serverConfig, maxFrameSize.get())
+            streamManager.registerUpload(streamId, sender)
+
+            sender.sendInit(
+                method,
+                request.path(),
+                request.getHeader("Content-Type"),
+                contentLength,
+                request.headers().entries().filterNot { it.key.startsWith("X-Domain") || it.key.equals("Content-Length", true) }
+                    .associate { it.key to it.value }
+            )
+
+            val flow = body.asFlow()
+            flow.collect { chunk ->
+                sender.sendChunk(chunk, false)
+            }
+            sender.sendChunk(ByteArray(0), true)
+
+            response(socketService.waitForResponse(streamId))
+        } else {
+            // Non-streaming: collect body and use makeRequest
+            val fullBody = body?.collect()?.asList()?.awaitSuspending()?.fold(ByteArray(0)) { acc: ByteArray, bytes: ByteArray -> acc + bytes }
+            response(makeRequest(domain, domainHeader, method, fullBody))
+        }
     }
 
     private suspend fun makeRequest(

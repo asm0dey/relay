@@ -1,7 +1,8 @@
 package site.asm0dey.relay.server
 
 import jakarta.inject.Singleton
-import site.asm0dey.relay.domain.*
+import site.asm0dey.relay.domain.StreamChunk
+import site.asm0dey.relay.domain.StreamInit
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Clock
 import kotlin.time.Instant
@@ -9,6 +10,7 @@ import kotlin.time.Instant
 @Singleton
 class StreamManager {
     private val activeStreams = ConcurrentHashMap<String, StreamContext>()
+    private val activeUploads = ConcurrentHashMap<String, StreamingSender>()
 
     data class StreamContext(
         val correlationId: String,
@@ -20,6 +22,12 @@ class StreamManager {
         @Volatile var bytesReceived: Long = 0,
         @Volatile var completed: Boolean = false
     )
+
+    fun registerUpload(correlationId: String, sender: StreamingSender) {
+        activeUploads[correlationId] = sender
+    }
+
+    fun getUpload(correlationId: String): StreamingSender? = activeUploads[correlationId]
 
     fun initiateStream(correlationId: String, clientId: String, init: StreamInit.StreamInitPayload): StreamContext {
         val context = StreamContext(
@@ -38,6 +46,7 @@ class StreamManager {
 
     fun cleanup(correlationId: String) {
         activeStreams.remove(correlationId)
+        activeUploads.remove(correlationId)?.cleanup()
     }
 
     fun receiveChunk(correlationId: String, chunk: StreamChunk.StreamChunkPayload): Result<StreamContext> {

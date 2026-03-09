@@ -48,6 +48,7 @@ class SocketService() {
         connection.userData().put(domainString, subdomain)
     }
 
+    @Suppress("unused")
     @OnClose
     fun onClose(connection: WebSocketConnection) {
         val clientId = connection.id()
@@ -100,9 +101,9 @@ class SocketService() {
                 else -> {}
             }
         } else {
-            val deferred = pendingRequests.remove(CorrelationID(envelope.correlationId))
-            if (deferred != null) {
-                if (envelope.payload !is Response) throw IllegalStateException("Expected response message, got $envelope")
+            val deferred = pendingRequests.get(CorrelationID(envelope.correlationId))
+            if (deferred != null && envelope.payload is Response) {
+                pendingRequests.remove(CorrelationID(envelope.correlationId))
                 deferred.complete(envelope)
             } else {
                 when (val payload = envelope.payload) {
@@ -123,8 +124,8 @@ class SocketService() {
                         }
                     }
                     is StreamAck -> {
-                        // Server doesn't need to process ACKs (client sends ACKs)
-                        // This is here for completeness - ACKs are client->server
+                        val ack = payload.value
+                        streamManager.getUpload(ack.correlationId)?.onAck(ack)
                     }
                     is StreamError -> {
                         val error = payload.value
@@ -142,14 +143,22 @@ class SocketService() {
         val deferred = CompletableDeferred<Envelope>()
         val correlationId = CorrelationID(envelope.correlationId)
         pendingRequests[correlationId] = deferred
-        val connection = connections.first { it.userData().get(domainString) == host }
+        val connection = getConnectionForHost(host)
         withTimeout(5000) {
             connection.sendBinary(envelope.toByteArray()).awaitSuspending()
         }
+        return waitForResponse(envelope.correlationId)
+    }
+
+    suspend fun waitForResponse(correlationId: String): Envelope {
+        val deferred = pendingRequests.getOrPut(CorrelationID(correlationId)) { CompletableDeferred() }
         return withTimeout(10000) {
             deferred.await()
         }
     }
+
+    fun getConnectionForHost(host: String): WebSocketConnection =
+        connections.first { it.userData().get(domainString) == host }
 
     suspend fun sendAck(connection: WebSocketConnection, correlationId: String, chunkIndex: Long) {
         val ack = Envelope(

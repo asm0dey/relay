@@ -2,17 +2,18 @@ package site.asm0dey.relay.client
 
 import io.quarkus.runtime.Quarkus
 import io.quarkus.websockets.next.BinaryMessageCodec
-import io.quarkus.websockets.next.Closed
 import io.quarkus.websockets.next.OnBinaryMessage
 import io.quarkus.websockets.next.WebSocketClient
 import io.quarkus.websockets.next.WebSocketClientConnection
 import io.smallrye.mutiny.coroutines.awaitSuspending
+import io.vertx.core.Future
 import io.vertx.core.buffer.Buffer
 import io.vertx.core.http.HttpMethod.valueOf
+import io.vertx.core.streams.WriteStream
 import io.vertx.mutiny.core.Vertx
 import io.vertx.mutiny.core.buffer.Buffer.buffer
+import io.vertx.mutiny.core.buffer.Buffer as MBuffer
 import io.vertx.mutiny.ext.web.client.WebClient
-import jakarta.enterprise.event.ObservesAsync
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import picocli.CommandLine.ParseResult
@@ -33,7 +34,7 @@ open class WsClient @Inject constructor(parseResult: ParseResult, vertx: Vertx) 
     lateinit var connection: WebSocketClientConnection
     var assignedSubdomain: String? = null
     val activeStreams = ConcurrentHashMap<String, StreamingSender>()
-
+    val activeUploads = ConcurrentHashMap<String, WriteStream<Buffer>>()
 
     @Suppress("unused")
     @OnBinaryMessage
@@ -95,9 +96,75 @@ open class WsClient @Inject constructor(parseResult: ParseResult, vertx: Vertx) 
             }
             is StreamError -> {
                 val error = payload.value
-                activeStreams[error.correlationId]?.onError(error)
+                activeStreams[error.correlationId]?.onError()
+                activeUploads.remove(error.correlationId)?.end()
             }
-            is StreamInit, is StreamChunk -> TODO("Handle stream messages from server")
+
+            is StreamInit -> {
+                val init = payload.value
+                val req = webClient
+                    .requestAbs(valueOf(init.method ?: "POST"), url.removeSuffix("/") + "/" + (init.path ?: "").removePrefix("/"))
+                init.headers.forEach { (k, v) -> req.putHeader(k, v) }
+                init.contentType?.let { req.putHeader("Content-Type", it) }
+                init.contentLength?.let { req.putHeader("Content-Length", it.toString()) }
+
+                val chunks = mutableListOf<ByteArray>()
+                val bridge = object : WriteStream<Buffer> {
+                    override fun write(data: Buffer): Future<Void> {
+                        chunks.add(data.bytes)
+                        return Future.succeededFuture()
+                    }
+                    override fun write(data: Buffer, handler: io.vertx.core.Handler<io.vertx.core.AsyncResult<Void>>?) {
+                        write(data)
+                        handler?.handle(Future.succeededFuture())
+                    }
+                    override fun end(): Future<Void> {
+                        val fullBody = chunks.fold(ByteArray(0)) { acc, bytes -> acc + bytes }
+                        req.sendBuffer(MBuffer.newInstance(Buffer.buffer(fullBody))).subscribe().with { response ->
+                             val responsePayload = Response(
+                                ResponsePayload(
+                                    statusCode = response.statusCode(),
+                                    headers = response.headers().entries().associate { it.key to it.value },
+                                    body = response.body()?.bytes
+                                )
+                            )
+                            connection.sendBinary(
+                                Envelope(correlationId = init.correlationId, payload = responsePayload).toByteArray()
+                            ).subscribe().with { }
+                        }
+                        return Future.succeededFuture()
+                    }
+                    override fun end(handler: io.vertx.core.Handler<io.vertx.core.AsyncResult<Void>>?) {
+                        end()
+                        handler?.handle(Future.succeededFuture())
+                    }
+                    override fun setWriteQueueMaxSize(maxSize: Int): WriteStream<Buffer> = this
+                    override fun writeQueueFull(): Boolean = false
+                    override fun drainHandler(handler: io.vertx.core.Handler<Void>?): WriteStream<Buffer> = this
+                    override fun exceptionHandler(handler: io.vertx.core.Handler<Throwable>?): WriteStream<Buffer> = this
+                }
+                activeUploads[init.correlationId] = bridge
+            }
+
+            is StreamChunk -> {
+                val chunk = payload.value
+                val writeStream = activeUploads[chunk.correlationId]
+                if (writeStream != null) {
+                    if (chunk.data.isNotEmpty()) {
+                        writeStream.write(Buffer.buffer(chunk.data))
+                    }
+                    if (chunk.isLast) {
+                        writeStream.end()
+                        activeUploads.remove(chunk.correlationId)
+                    }
+                    // Send ACK back to server
+                    val ack = Envelope(
+                        correlationId = chunk.correlationId,
+                        payload = StreamAck(StreamAck.StreamAckPayload(chunk.correlationId, chunk.chunkIndex))
+                    )
+                    connection.sendBinary(ack.toByteArray()).awaitSuspending()
+                }
+            }
         }
     }
 }

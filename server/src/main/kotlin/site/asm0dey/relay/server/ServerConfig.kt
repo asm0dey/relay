@@ -3,13 +3,16 @@ package site.asm0dey.relay.server
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.enterprise.inject.Produces
 import java.io.FileInputStream
+import java.time.Duration
 import java.util.*
 
 data class ServerConfig(
     val port: Int = 8080,
     val host: String = "0.0.0.0",
     val domain: String = "domain.example.com",
-    val allowedSecretKeys: List<String> = listOf("Secret")
+    val allowedSecretKeys: List<String> = listOf("Secret"),
+    val maxInflightChunks: Int = 10,
+    val chunkTimeout: Duration = Duration.ofSeconds(10),
 )
 
 @ApplicationScoped
@@ -33,6 +36,8 @@ val config: ServerConfig by lazy {
                 "host" -> conf = conf.copy(host = v.toString())
                 "domain" -> conf = conf.copy(domain = v.toString())
                 "allowed_secret_keys" -> conf = conf.copy(allowedSecretKeys = v.toString().split(",").map { it.trim() })
+                "max_inflight_chunks" -> conf = conf.copy(maxInflightChunks = v.toString().toInt())
+                "chunk_timeout" -> conf = conf.copy(chunkTimeout = Duration.ofMillis(v.toString().toLong()))
             }
         }
         conf

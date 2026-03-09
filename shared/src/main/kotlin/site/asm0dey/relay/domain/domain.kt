@@ -137,7 +137,9 @@ data class StreamInit(@ProtoNumber(15) val value: StreamInitPayload) : Payload {
         @ProtoNumber(1) val correlationId: String,
         @ProtoNumber(2) val contentType: String? = null,
         @ProtoNumber(3) val contentLength: Long? = null,
-        @ProtoNumber(4) val headers: Map<String, String> = hashMapOf()
+        @ProtoNumber(4) val headers: Map<String, String> = hashMapOf(),
+        @ProtoNumber(5) val method: String? = null,
+        @ProtoNumber(6) val path: String? = null,
     )
 }
 

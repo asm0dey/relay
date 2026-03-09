@@ -232,7 +232,8 @@ class FirstTest @Inject constructor(
                 connectOptions.addHeader("domain", "test")
             }
             .connectAndAwait()
-        val largePayload = Random().nextBytes(ByteArray(1024 * 1024 * 10))
+        val bytes = ByteArray(1024 * 1024 * 10)
+        Random().nextBytes(bytes)
         wireMock.register(
             post("/large")
                 .willReturn(
@@ -243,12 +244,61 @@ class FirstTest @Inject constructor(
         )
         given()
             .header("X-Domain", "test")
-            .body(largePayload)
+            .body(bytes)
             .`when`()
             .post("http://localhost:$wiremockPort/large")
             .then()
             .statusCode(200)
             .body(`is`("A"))
+    }
+
+    @ConfigProperty(name = "quarkus.websockets-next.server.max-frame-size")
+    lateinit var maxFrameSize: Provider<Int>
+
+    @ConfigProperty(name = "quarkus.websockets-next.server.max-message-size")
+    lateinit var maxMessageSize: Provider<Int>
+
+    @Test
+    fun testSmallFrameAndMessage() {
+        // This test ensures that we can handle uploads that are bigger than current frame size and current message size.
+        // We use injected values from properties and generate a payload 2 times bigger than the biggest of them.
+        val wsUri = baseUri()
+        connector.baseUri(URI(wsUri))
+            .pathParam("secret", "Secret")
+            .customizeOptions { connectOptions, _ ->
+                connectOptions.addHeader("domain", "test")
+            }
+            .connectAndAwait()
+
+        val maxLimit = maxOf(maxFrameSize.get(), maxMessageSize.get())
+        val payloadSize = maxLimit * 2
+        println("DEBUG: payloadSize=$payloadSize")
+        
+        val body = ByteArray(payloadSize)
+        Random().nextBytes(body)
+
+        wireMock.register(
+            post("/small-frame")
+                .willReturn(
+                    aResponse()
+                        .withStatus(200)
+                        .withBody("OK")
+                )
+        )
+
+        given()
+            .header("X-Domain", "test")
+            .body(body)
+            .`when`()
+            .post("http://localhost:$wiremockPort/small-frame")
+            .then()
+            .statusCode(200)
+            .body(`is`("OK"))
+
+        wireMock.verifyThat(
+            postRequestedFor(urlEqualTo("/small-frame"))
+                .withRequestBody(binaryEqualTo(body))
+        )
     }
 
     @Test

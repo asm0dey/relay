@@ -22,7 +22,7 @@ jobs:
 
       - name: Run tests
         timeout-minutes: 4
-        run: ./mvnw verify -Daether.dependencyCollector.impl=bf
+        run: ./mvnw -B -e verify -Daether.dependencyCollector.impl=bf
 
       - name: Upload thread dumps
         if: failure()
@@ -35,9 +35,6 @@ jobs:
             **/target/surefire-reports/*.dump
             **/target/surefire-reports/*.dumpstream
           if-no-files-found: ignore
-
-
-
 
   build-server:
     name: Build Server (${{ matrix.os }}-${{ matrix.arch }})

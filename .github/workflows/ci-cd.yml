@@ -20,9 +20,21 @@ jobs:
           distribution: 'liberica'
           cache: 'maven'
 
-      - name: Run tests
+      - name: Run tests and collect thread dumps
+        uses: qoomon/actions--parallel-steps@v1
         timeout-minutes: 4
-        run: ./mvnw -B -e verify -Daether.dependencyCollector.impl=bf
+        with:
+          steps: |
+            - name: Run tests
+              run: ./mvnw -B -e verify -Daether.dependencyCollector.impl=bf
+            - name: Thread dump collection
+              run: |
+                sleep 180
+                mkdir -p thread-dumps
+                for pid in $(pgrep java); do
+                  echo "Collecting thread dump for PID $pid"
+                  jstack $pid | tee thread-dumps/thread-dump-$pid-$(date +%Y%m%d-%H%M%S).txt || true
+                done
 
       - name: Upload thread dumps
         if: failure()

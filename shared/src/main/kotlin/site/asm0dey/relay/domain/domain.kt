@@ -195,6 +195,95 @@ data class StreamError(@ProtoNumber(17) val value: StreamErrorPayload) : Payload
     )
 }
 
+@Serializable
+data class WsUpgrade(@ProtoNumber(20) val value: WsUpgradePayload) : Payload {
+    @Serializable
+    data class WsUpgradePayload(
+        @ProtoNumber(1) val wsId: String,
+        @ProtoNumber(2) val path: String,
+        @ProtoNumber(3) val query: Map<String, String> = emptyMap(),
+        @ProtoNumber(4) val headers: Map<String, String> = emptyMap(),
+        @ProtoNumber(5) val subprotocols: List<String> = emptyList()
+    )
+}
+
+@Serializable
+data class WsUpgradeResponse(@ProtoNumber(21) val value: WsUpgradeResponsePayload) : Payload {
+    @Serializable
+    data class WsUpgradeResponsePayload(
+        @ProtoNumber(1) val wsId: String,
+        @ProtoNumber(2) val accepted: Boolean,
+        @ProtoNumber(3) val subprotocol: String? = null,
+        @ProtoNumber(4) val statusCode: Int = 101,
+        @ProtoNumber(5) val headers: Map<String, String> = emptyMap()
+    )
+}
+
+@Serializable
+data class WsMessage(@ProtoNumber(22) val value: WsMessagePayload) : Payload {
+    @Serializable
+    data class WsMessagePayload(
+        @ProtoNumber(1) val wsId: String,
+        @ProtoNumber(2) val type: FrameType,
+        @ProtoNumber(3) val data: ByteArray
+    ) {
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (javaClass != other?.javaClass) return false
+
+            other as WsMessagePayload
+
+            if (wsId != other.wsId) return false
+            if (type != other.type) return false
+            if (!data.contentEquals(other.data)) return false
+
+            return true
+        }
+
+        override fun hashCode(): Int {
+            var result = wsId.hashCode()
+            result = 31 * result + type.hashCode()
+            result = 31 * result + data.contentHashCode()
+            return result
+        }
+
+        @Serializable
+        enum class FrameType {
+            TEXT, BINARY, PING, PONG, CLOSE
+        }
+    }
+}
+
+@Serializable
+data class WsClose(@ProtoNumber(23) val value: WsClosePayload) : Payload {
+    @Serializable
+    data class WsClosePayload(
+        @ProtoNumber(1) val wsId: String,
+        @ProtoNumber(2) val code: Int = 1000,
+        @ProtoNumber(3) val reason: String = ""
+    ) {
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (javaClass != other?.javaClass) return false
+
+            other as WsClosePayload
+
+            if (wsId != other.wsId) return false
+            if (code != other.code) return false
+            if (reason != other.reason) return false
+
+            return true
+        }
+
+        override fun hashCode(): Int {
+            var result = wsId.hashCode()
+            result = 31 * result + code
+            result = 31 * result + reason.hashCode()
+            return result
+        }
+    }
+}
+
 private val proto = ProtoBuf {}
 
 @Suppress("unused")

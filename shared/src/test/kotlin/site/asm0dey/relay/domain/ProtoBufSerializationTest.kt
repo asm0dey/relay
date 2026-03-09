@@ -545,4 +545,242 @@ class ProtoBufSerializationTest {
         assertEquals(StreamErrorCode.UPSTREAM_TIMEOUT, streamError.value.code)
         assertEquals("Local app stopped responding", streamError.value.message)
     }
+
+    @Test
+    fun `serialize and deserialize WsUpgrade`() {
+        val upgrade = Envelope(
+            correlationId = "test-id",
+            payload = WsUpgrade(WsUpgrade.WsUpgradePayload(
+                wsId = "ws-123",
+                path = "/socket",
+                query = mapOf("token" to "abc123"),
+                headers = mapOf("Origin" to "https://example.com"),
+                subprotocols = listOf("wss", "v1.channel")
+            ))
+        )
+        val bytes = upgrade.toByteArray()
+        val deserialized = bytes.toEnvelope()
+        assertEquals(upgrade.correlationId, deserialized.correlationId)
+        assertTrue(deserialized.payload is WsUpgrade)
+        val wsUpgrade = deserialized.payload
+        assertEquals("ws-123", wsUpgrade.value.wsId)
+        assertEquals("/socket", wsUpgrade.value.path)
+        assertEquals("abc123", wsUpgrade.value.query["token"])
+        assertEquals("https://example.com", wsUpgrade.value.headers["Origin"])
+        assertEquals(listOf("wss", "v1.channel"), wsUpgrade.value.subprotocols)
+    }
+
+    @Test
+    fun `serialize and deserialize WsUpgrade - minimal`() {
+        val upgrade = Envelope(
+            correlationId = "test-id",
+            payload = WsUpgrade(WsUpgrade.WsUpgradePayload(
+                wsId = "ws-123",
+                path = "/socket"
+            ))
+        )
+        val bytes = upgrade.toByteArray()
+        val deserialized = bytes.toEnvelope()
+        assertTrue(deserialized.payload is WsUpgrade)
+        val wsUpgrade = deserialized.payload
+        assertEquals("ws-123", wsUpgrade.value.wsId)
+        assertEquals("/socket", wsUpgrade.value.path)
+        assertEquals(emptyMap(), wsUpgrade.value.query)
+        assertEquals(emptyMap(), wsUpgrade.value.headers)
+        assertEquals(emptyList(), wsUpgrade.value.subprotocols)
+    }
+
+    @Test
+    fun `serialize and deserialize WsUpgradeResponse`() {
+        val response = Envelope(
+            correlationId = "test-id",
+            payload = WsUpgradeResponse(WsUpgradeResponse.WsUpgradeResponsePayload(
+                wsId = "ws-123",
+                accepted = true,
+                subprotocol = "wss",
+                statusCode = 101,
+                headers = mapOf("Set-Cookie" to "session=xyz")
+            ))
+        )
+        val bytes = response.toByteArray()
+        val deserialized = bytes.toEnvelope()
+        assertEquals(response.correlationId, deserialized.correlationId)
+        assertTrue(deserialized.payload is WsUpgradeResponse)
+        val wsResponse = deserialized.payload
+        assertEquals("ws-123", wsResponse.value.wsId)
+        assertEquals(true, wsResponse.value.accepted)
+        assertEquals("wss", wsResponse.value.subprotocol)
+        assertEquals(101, wsResponse.value.statusCode)
+        assertEquals("session=xyz", wsResponse.value.headers["Set-Cookie"])
+    }
+
+    @Test
+    fun `serialize and deserialize WsUpgradeResponse - rejected`() {
+        val response = Envelope(
+            correlationId = "test-id",
+            payload = WsUpgradeResponse(WsUpgradeResponse.WsUpgradeResponsePayload(
+                wsId = "ws-123",
+                accepted = false,
+                statusCode = 403,
+                headers = mapOf("X-Error" to "Forbidden")
+            ))
+        )
+        val bytes = response.toByteArray()
+        val deserialized = bytes.toEnvelope()
+        assertTrue(deserialized.payload is WsUpgradeResponse)
+        val wsResponse = deserialized.payload
+        assertEquals("ws-123", wsResponse.value.wsId)
+        assertEquals(false, wsResponse.value.accepted)
+        assertEquals(null, wsResponse.value.subprotocol)
+        assertEquals(403, wsResponse.value.statusCode)
+        assertEquals("Forbidden", wsResponse.value.headers["X-Error"])
+    }
+
+    @Test
+    fun `serialize and deserialize WsMessage - TEXT`() {
+        val message = Envelope(
+            correlationId = "test-id",
+            payload = WsMessage(WsMessage.WsMessagePayload(
+                wsId = "ws-123",
+                type = WsMessage.WsMessagePayload.FrameType.TEXT,
+                data = "Hello, WebSocket!".toByteArray(Charsets.UTF_8)
+            ))
+        )
+        val bytes = message.toByteArray()
+        val deserialized = bytes.toEnvelope()
+        assertEquals(message.correlationId, deserialized.correlationId)
+        assertTrue(deserialized.payload is WsMessage)
+        val wsMessage = deserialized.payload
+        assertEquals("ws-123", wsMessage.value.wsId)
+        assertEquals(WsMessage.WsMessagePayload.FrameType.TEXT, wsMessage.value.type)
+        assertEquals("Hello, WebSocket!", String(wsMessage.value.data, Charsets.UTF_8))
+    }
+
+    @Test
+    fun `serialize and deserialize WsMessage - BINARY`() {
+        val binaryData = byteArrayOf(0x00.toByte(), 0x01.toByte(), 0x02.toByte(), 0xFF.toByte())
+        val message = Envelope(
+            correlationId = "test-id",
+            payload = WsMessage(WsMessage.WsMessagePayload(
+                wsId = "ws-123",
+                type = WsMessage.WsMessagePayload.FrameType.BINARY,
+                data = binaryData
+            ))
+        )
+        val bytes = message.toByteArray()
+        val deserialized = bytes.toEnvelope()
+        assertTrue(deserialized.payload is WsMessage)
+        val wsMessage = deserialized.payload
+        assertEquals("ws-123", wsMessage.value.wsId)
+        assertEquals(WsMessage.WsMessagePayload.FrameType.BINARY, wsMessage.value.type)
+        assertTrue(wsMessage.value.data.contentEquals(binaryData))
+    }
+
+    @Test
+    fun `serialize and deserialize WsMessage - PING`() {
+        val message = Envelope(
+            correlationId = "test-id",
+            payload = WsMessage(WsMessage.WsMessagePayload(
+                wsId = "ws-123",
+                type = WsMessage.WsMessagePayload.FrameType.PING,
+                data = "ping".toByteArray(Charsets.UTF_8)
+            ))
+        )
+        val bytes = message.toByteArray()
+        val deserialized = bytes.toEnvelope()
+        assertTrue(deserialized.payload is WsMessage)
+        assertEquals(WsMessage.WsMessagePayload.FrameType.PING, deserialized.payload.value.type)
+    }
+
+    @Test
+    fun `serialize and deserialize WsMessage - PONG`() {
+        val message = Envelope(
+            correlationId = "test-id",
+            payload = WsMessage(WsMessage.WsMessagePayload(
+                wsId = "ws-123",
+                type = WsMessage.WsMessagePayload.FrameType.PONG,
+                data = "pong".toByteArray(Charsets.UTF_8)
+            ))
+        )
+        val bytes = message.toByteArray()
+        val deserialized = bytes.toEnvelope()
+        assertTrue(deserialized.payload is WsMessage)
+        assertEquals(WsMessage.WsMessagePayload.FrameType.PONG, deserialized.payload.value.type)
+    }
+
+    @Test
+    fun `serialize and deserialize WsMessage - CLOSE`() {
+        val message = Envelope(
+            correlationId = "test-id",
+            payload = WsMessage(WsMessage.WsMessagePayload(
+                wsId = "ws-123",
+                type = WsMessage.WsMessagePayload.FrameType.CLOSE,
+                data = byteArrayOf(0x03, 0xE8.toByte()) // 1000 in big-endian
+            ))
+        )
+        val bytes = message.toByteArray()
+        val deserialized = bytes.toEnvelope()
+        assertTrue(deserialized.payload is WsMessage)
+        assertEquals(WsMessage.WsMessagePayload.FrameType.CLOSE, deserialized.payload.value.type)
+    }
+
+    @Test
+    fun `serialize and deserialize WsClose`() {
+        val close = Envelope(
+            correlationId = "test-id",
+            payload = WsClose(WsClose.WsClosePayload(
+                wsId = "ws-123",
+                code = 1000,
+                reason = "Normal closure"
+            ))
+        )
+        val bytes = close.toByteArray()
+        val deserialized = bytes.toEnvelope()
+        assertEquals(close.correlationId, deserialized.correlationId)
+        assertTrue(deserialized.payload is WsClose)
+        val wsClose = deserialized.payload
+        assertEquals("ws-123", wsClose.value.wsId)
+        assertEquals(1000, wsClose.value.code)
+        assertEquals("Normal closure", wsClose.value.reason)
+    }
+
+    @Test
+    fun `serialize and deserialize WsClose - minimal`() {
+        val close = Envelope(
+            correlationId = "test-id",
+            payload = WsClose(WsClose.WsClosePayload(
+                wsId = "ws-123"
+            ))
+        )
+        val bytes = close.toByteArray()
+        val deserialized = bytes.toEnvelope()
+        assertTrue(deserialized.payload is WsClose)
+        val wsClose = deserialized.payload
+        assertEquals("ws-123", wsClose.value.wsId)
+        assertEquals(1000, wsClose.value.code) // default
+        assertEquals("", wsClose.value.reason) // default
+    }
+
+    @Test
+    fun `WsMessage equals and hashCode work correctly`() {
+        val data = "test".toByteArray()
+        val payload1 = WsMessage.WsMessagePayload("ws-1", WsMessage.WsMessagePayload.FrameType.TEXT, data)
+        val payload2 = WsMessage.WsMessagePayload("ws-1", WsMessage.WsMessagePayload.FrameType.TEXT, data)
+        val payload3 = WsMessage.WsMessagePayload("ws-2", WsMessage.WsMessagePayload.FrameType.TEXT, data)
+
+        assertEquals(payload1, payload2)
+        assertEquals(payload1.hashCode(), payload2.hashCode())
+        assert(payload1 != payload3)
+    }
+
+    @Test
+    fun `WsClose equals and hashCode work correctly`() {
+        val payload1 = WsClose.WsClosePayload("ws-1", 1000, "reason")
+        val payload2 = WsClose.WsClosePayload("ws-1", 1000, "reason")
+        val payload3 = WsClose.WsClosePayload("ws-1", 1001, "reason")
+
+        assertEquals(payload1, payload2)
+        assertEquals(payload1.hashCode(), payload2.hashCode())
+        assert(payload1 != payload3)
+    }
 }

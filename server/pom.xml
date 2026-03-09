@@ -112,6 +112,7 @@
                         <maven.home>${maven.home}</maven.home>
                     </systemPropertyVariables>
                     <forkedProcessTimeoutInSeconds>120</forkedProcessTimeoutInSeconds>
+                    <shutdown>kill</shutdown>
                 </configuration>
             </plugin>
             <plugin>
@@ -134,6 +135,7 @@
                         <maven.home>${maven.home}</maven.home>
                     </systemPropertyVariables>
                     <forkedProcessTimeoutInSeconds>120</forkedProcessTimeoutInSeconds>
+                    <shutdown>kill</shutdown>
                 </configuration>
             </plugin>
             <plugin>

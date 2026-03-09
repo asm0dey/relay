@@ -110,6 +110,7 @@
                     <excludes>
                         <exclude>site.asm0dey.relay.client.Client</exclude>
                     </excludes>
+                    <jar/>
                 </configuration>
             </plugin>
             <plugin>

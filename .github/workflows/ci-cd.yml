@@ -19,6 +19,12 @@ jobs:
           java-version: '25'
           distribution: 'liberica'
           cache: 'maven'
+      - name: Heartbeat
+        run: |
+          while true; do
+            ping github.com -c 1 > /dev/null && echo "I am up"
+            sleep 1
+          done &
       - name: Run tests
         run: ./mvnw -B -e verify -Daether.dependencyCollector.impl=bf
 #      - name: Run tests and collect thread dumps

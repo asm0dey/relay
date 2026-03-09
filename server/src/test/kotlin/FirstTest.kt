@@ -230,7 +230,7 @@ class FirstTest @Inject constructor(
                 connectOptions.addHeader("domain", "test")
             }
             .connectAndAwait()
-        val largePayload = "A".repeat(10 * 1024 * 1024)
+        val largePayload = Random().nextBytes(ByteArray(1024 * 1024 * 10))
         wireMock.register(
             post("/large")
                 .willReturn(

@@ -63,7 +63,7 @@ jobs:
           sha256sum server/target/relay-server-${{ matrix.target }} > server/target/relay-server-${{ matrix.target }}.sha256
 
       - name: Upload Artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: relay-server-${{ matrix.target }}
           path: |
@@ -144,7 +144,7 @@ jobs:
           fi
 
       - name: Upload Artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: relay-client-${{ matrix.type }}-${{ matrix.arch }}
           path: |
@@ -179,7 +179,7 @@ jobs:
           sparse-checkout-cone-mode: false
 
       - name: Download Artifact
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: relay-server-${{ matrix.target }}
           path: server/target
@@ -254,7 +254,7 @@ jobs:
       packages: read
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           path: artifacts
 

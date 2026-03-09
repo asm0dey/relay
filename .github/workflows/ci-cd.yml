@@ -10,7 +10,7 @@ on:
 jobs:
   test:
     name: Run Tests
-    runs-on: ubuntu-slim
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
         with:

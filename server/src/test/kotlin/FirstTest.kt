@@ -35,6 +35,7 @@ import site.asm0dey.relay.domain.Envelope
 import site.asm0dey.relay.domain.toByteArray
 import java.net.URI
 import java.util.*
+import kotlin.random.Random
 
 
 @QuarkusTest
@@ -232,7 +233,8 @@ class FirstTest @Inject constructor(
                 connectOptions.addHeader("domain", "test")
             }
             .connectAndAwait()
-        val payload = RandomStringUtils.insecure().nextAlphanumeric(10*1024*1024).toByteArray()
+        val payloadSize = 10 * 1024 * 1024
+        val body = Random.nextBytes(payloadSize)
         wireMock.register(
             post("/large")
                 .willReturn(
@@ -243,7 +245,7 @@ class FirstTest @Inject constructor(
         )
         given()
             .header("X-Domain", "test")
-            .body(payload)
+            .body(body)
             .`when`()
             .post("http://localhost:$wiremockPort/large")
             .then()
@@ -251,7 +253,7 @@ class FirstTest @Inject constructor(
             .body(`is`("A"))
         wireMock.verifyThat(
             postRequestedFor(urlEqualTo("/large"))
-                .withRequestBody(binaryEqualTo(payload))
+                .withRequestBody(binaryEqualTo(body))
         )
 
     }
@@ -277,8 +279,8 @@ class FirstTest @Inject constructor(
         val maxLimit = maxOf(maxFrameSize.get(), maxMessageSize.get())
         val payloadSize = maxLimit * 2
         println("DEBUG: payloadSize=$payloadSize")
-        
-        val body = RandomStringUtils.insecure().nextAlphanumeric(payloadSize).toByteArray()
+
+        val body = Random.nextBytes(payloadSize)
 
         wireMock.register(
             post("/small-frame")
@@ -424,7 +426,8 @@ class FirstTest @Inject constructor(
     }
 
     private fun baseUri(): String {
-        @Suppress("HttpUrlsUsage") val wsUri = baseUri.toString().replace("http://", "ws://").replace("localhost", "127.0.0.1")
+        @Suppress("HttpUrlsUsage") val wsUri =
+            baseUri.toString().replace("http://", "ws://").replace("localhost", "127.0.0.1")
         return wsUri
     }
 }

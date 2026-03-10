@@ -199,7 +199,7 @@ jobs:
           TAG=${{ github.ref_name }}
           IMAGE_ID=ghcr.io/${{ github.repository }}/server
           
-          cat <<EOF > server/src/main/docker/Dockerfile.native.arch
+          cat <<EOF > Dockerfile.native.arch
           FROM bellsoft/alpaquita-linux-base:glibc
           WORKDIR /work/
           RUN chown 1001 /work && chmod "g+rwX" /work && chown 1001:root /work
@@ -214,7 +214,7 @@ jobs:
             --platform linux/${{ matrix.arch }} \
             --push \
             --tag $IMAGE_ID:$TAG-${{ matrix.arch }} \
-            -f server/src/main/docker/Dockerfile.native.arch .
+            -f Dockerfile.native.arch .
 
   docker-manifest:
     name: Push Multi-arch Docker Manifest

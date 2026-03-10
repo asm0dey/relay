@@ -232,7 +232,7 @@ class FirstTest @Inject constructor(
                 connectOptions.addHeader("domain", "test")
             }
             .connectAndAwait()
-        val payload = RandomStringUtils.insecure().nextAlphanumeric(10*1024*1024)
+        val payload = RandomStringUtils.insecure().nextAlphanumeric(10*1024*1024).toByteArray()
         wireMock.register(
             post("/large")
                 .willReturn(
@@ -251,7 +251,7 @@ class FirstTest @Inject constructor(
             .body(`is`("A"))
         wireMock.verifyThat(
             postRequestedFor(urlEqualTo("/large"))
-                .withRequestBody(equalTo(payload))
+                .withRequestBody(binaryEqualTo(payload))
         )
 
     }

@@ -54,7 +54,7 @@ jobs:
           cache: 'maven'
 
       - name: Build Native Server
-        run: ./mvnw package -pl server -am -Dquarkus.package.type=native -Dmaven.test.skip=true
+        run: ./mvnw -B -e package -pl server -am -Dquarkus.package.type=native -Dmaven.test.skip=true -Daether.dependencyCollector.impl=bf
 
       - name: Rename artifact
         run: |
@@ -127,7 +127,7 @@ jobs:
 
       - name: Build Native Client
         shell: bash
-        run: ./mvnw clean package -pl client -am -Dquarkus.package.type=native -Dmaven.test.skip=true
+        run: ./mvnw -B -e clean package -pl client -am -Dquarkus.package.type=native -Dmaven.test.skip=true -Daether.dependencyCollector.impl=bf
 
       - name: Prepare Artifact
         shell: bash

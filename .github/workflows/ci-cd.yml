@@ -133,12 +133,12 @@ jobs:
         shell: bash
         run: |
           BIN_NAME=relay-client-${{ matrix.type }}-${{ matrix.arch }}${{ matrix.ext }}
-          mv client/target/client-1.0.0-SNAPSHOT-native-image-source-jar/client-1.0.0-SNAPSHOT-runner client/build/$BIN_NAME
+          mv client/target/client-1.0.0-SNAPSHOT-runner client/target/$BIN_NAME
           if [ "${{ matrix.os }}" != "windows-latest" ]; then
             chmod +x client/target/$BIN_NAME
           fi
           if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            certutil -hashfile client/target/$BIN_NAME SHA256 | grep -v "hash" | grep -v "CertUtil" | tr -d ' \n\r' > client/build/$BIN_NAME.sha256
+            certutil -hashfile client/target/$BIN_NAME SHA256 | grep -v "hash" | grep -v "CertUtil" | tr -d ' \n\r' > client/target/$BIN_NAME.sha256
           else
             sha256sum client/target/$BIN_NAME > client/build/$BIN_NAME.sha256
           fi

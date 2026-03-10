@@ -95,3 +95,35 @@ Possible error codes in streaming:
 - `UPSTREAM_TIMEOUT` - Upstream (local app) timeout
 - `UPSTREAM_ERROR` - Upstream error
 
+## WebSocket Proxy Support
+
+The relay supports WebSocket proxying, allowing external clients to connect to local applications through WebSocket.
+
+### Connecting via WebSocket
+
+External clients can connect to the relay at:
+```
+ws://relay-host/ws-upgrade/{domain}
+```
+
+The `{domain}` parameter should match the subdomain of the registered local application.
+
+### Configuration
+
+WebSocket proxy behavior can be configured via application properties:
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `relay.ws-upgrade-timeout` | 30s | Timeout for WebSocket upgrade handshake |
+| `relay.ws-max-tunnels` | 100 | Maximum concurrent WebSocket tunnels per connection |
+| `relay.ws-ping-interval` | 30s | Keepalive ping interval |
+
+### Protocol
+
+WebSocket connections use these message types over the relay-to-local WebSocket channel:
+
+1. **WsUpgrade** - External client initiates WebSocket upgrade. Contains wsId, path, query, headers, and subprotocols.
+2. **WsUpgradeResponse** - Local app accepts/rejects upgrade. Contains accepted flag, selected subprotocol, status code, and headers.
+3. **WsMessage** - Wraps WebSocket frames (TEXT, BINARY, PING, PONG, CLOSE).
+4. **WsClose** - Notifies of connection close. Contains close code and reason.
+

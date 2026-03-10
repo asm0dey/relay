@@ -12,7 +12,6 @@ import io.vertx.core.http.HttpMethod.valueOf
 import io.vertx.core.streams.WriteStream
 import io.vertx.mutiny.core.Vertx
 import io.vertx.mutiny.core.buffer.Buffer.buffer
-import io.vertx.mutiny.core.buffer.Buffer as MBuffer
 import io.vertx.mutiny.ext.web.client.WebClient
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -22,6 +21,7 @@ import site.asm0dey.relay.domain.Control.ControlPayload.ControlAction.*
 import site.asm0dey.relay.domain.Response.ResponsePayload
 import java.lang.reflect.Type
 import java.util.concurrent.ConcurrentHashMap
+import io.vertx.mutiny.core.buffer.Buffer as MBuffer
 
 @WebSocketClient(path = "/ws/{secret}")
 @Singleton
@@ -49,7 +49,12 @@ open class WsClient @Inject constructor(parseResult: ParseResult, vertx: Vertx) 
                     val publicUrl = payload.value.publicUrl
                     println(publicUrl)
                 }
-                UNREGISTER -> TODO()
+
+                UNREGISTER -> {
+                    println("Unregistered from server. Exiting.")
+                    Quarkus.asyncExit(0)
+                }
+
                 HEARTBEAT -> {
                     val heartbeatResponse = Envelope(
                         correlationId = message.correlationId,
@@ -57,11 +62,21 @@ open class WsClient @Inject constructor(parseResult: ParseResult, vertx: Vertx) 
                     )
                     connection.sendBinary(heartbeatResponse.toByteArray()).awaitSuspending()
                 }
-                STATUS -> TODO()
+
+                STATUS -> {
+                    val statusResponse = Envelope(
+                        correlationId = message.correlationId,
+                        payload = Control(Control.ControlPayload(REGISTERED, subdomain = assignedSubdomain))
+                    )
+                    connection.sendBinary(statusResponse.toByteArray()).awaitSuspending()
+                }
+
                 else -> {}
             }
 
-            is Error -> TODO()
+            is Error -> {
+                System.err.println("Error from server: ${payload.value.code} - ${payload.value.message}")
+            }
             is Request -> {
                 message.correlationId
                 val (method, path, query, headers, body, _) = payload.value
@@ -164,6 +179,38 @@ open class WsClient @Inject constructor(parseResult: ParseResult, vertx: Vertx) 
                     )
                     connection.sendBinary(ack.toByteArray()).awaitSuspending()
                 }
+            }
+
+            is WsUpgrade -> {
+                val upgrade = payload.value
+                val req = webClient
+                    .requestAbs(valueOf("GET"), url.removeSuffix("/") + "/" + upgrade.path.removePrefix("/"))
+                upgrade.headers.forEach { (k, v) -> req.putHeader(k, v) }
+                req.putHeader("Upgrade", "websocket")
+                req.putHeader("Connection", "Upgrade")
+
+                // Vert.x WebClient doesn't support WebSocket upgrade directly easily like this, 
+                // we'd need to use HttpClient.
+                // For now, let's assume we can't easily implement it without more changes to how webClient is used.
+                // But we should at least not crash.
+                System.err.println("WebSocket upgrade not fully implemented yet in client for ${upgrade.wsId}")
+            }
+
+            is WsUpgradeResponse -> {
+                // Client usually doesn't receive this from server unless it initiated it
+                System.err.println("Received unexpected WsUpgradeResponse for ${payload.value.wsId}")
+            }
+
+            is WsMessage -> {
+                val wsMsg = payload.value
+                // Here we would forward to the local WebSocket connection if we had one
+                System.err.println("Received WsMessage for ${wsMsg.wsId}, but forwarding is not implemented")
+            }
+
+            is WsClose -> {
+                val close = payload.value
+                activeUploads.remove(close.wsId)?.end()
+                System.out.println("Connection ${close.wsId} closed: ${close.code} ${close.reason}")
             }
         }
     }

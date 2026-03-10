@@ -1,13 +1,12 @@
 package site.asm0dey.relay.server
 
-import jakarta.inject.Singleton
+import jakarta.enterprise.context.ApplicationScoped
 import site.asm0dey.relay.domain.StreamChunk
 import site.asm0dey.relay.domain.StreamInit
 import java.util.concurrent.ConcurrentHashMap
-import kotlin.time.Clock
-import kotlin.time.Instant
+import kotlin.time.TimeSource
 
-@Singleton
+@ApplicationScoped
 class StreamManager {
     private val activeStreams = ConcurrentHashMap<String, StreamContext>()
     private val activeUploads = ConcurrentHashMap<String, StreamingSender>()
@@ -16,11 +15,13 @@ class StreamManager {
         val correlationId: String,
         val clientId: String,
         val contentType: String?,
-        val startTime: Instant = Clock.System.now(),
+        val startTime: TimeSource.Monotonic.ValueTimeMark = TimeSource.Monotonic.markNow(),
         val expectedContentLength: Long? = null,
         @Volatile var lastChunkIndex: Long = 0,
         @Volatile var bytesReceived: Long = 0,
-        @Volatile var completed: Boolean = false
+        @Volatile var completed: Boolean = false,
+        var chunkConsumer: ((ByteArray) -> Unit)? = null,
+        var errorConsumer: ((Throwable) -> Unit)? = null
     )
 
     fun registerUpload(correlationId: String, sender: StreamingSender) {

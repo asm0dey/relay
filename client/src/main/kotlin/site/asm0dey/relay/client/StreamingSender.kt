@@ -20,7 +20,6 @@ class StreamingSender(
     private val sender = StreamChunkSender(
         streamId,
         maxInFlightChunks,
-        chunkTimeout,
         sendBinary = { wsClient.connection.sendBinary(it).awaitSuspending() }
     )
 

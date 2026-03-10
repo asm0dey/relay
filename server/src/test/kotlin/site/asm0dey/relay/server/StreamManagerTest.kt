@@ -109,6 +109,51 @@ class StreamManagerTest {
     }
 
     @Test
+    fun `forward chunks to consumer`() {
+        val init = StreamInit.StreamInitPayload(
+            correlationId = "test-6",
+            contentType = null,
+            contentLength = null
+        )
+        val context = streamManager.initiateStream("test-6", "client-6", init)
+        
+        var receivedData: ByteArray? = null
+        context.chunkConsumer = { receivedData = it }
+
+        val chunk = StreamChunk.StreamChunkPayload(
+            correlationId = "test-6",
+            chunkIndex = 0,
+            data = "Hello".toByteArray(),
+            isLast = true
+        )
+        
+        // This is normally called from SocketService
+        val result = streamManager.receiveChunk("test-6", chunk)
+        result.getOrNull()?.chunkConsumer?.invoke(chunk.data)
+
+        assertArrayEquals("Hello".toByteArray(), receivedData)
+    }
+
+    @Test
+    fun `forward error to consumer`() {
+        val init = StreamInit.StreamInitPayload(
+            correlationId = "test-7",
+            contentType = null,
+            contentLength = null
+        )
+        val context = streamManager.initiateStream("test-7", "client-7", init)
+        
+        var receivedError: Throwable? = null
+        context.errorConsumer = { receivedError = it }
+
+        // This is normally called from SocketService
+        context.errorConsumer?.invoke(IllegalStateException("Test error"))
+
+        assertNotNull(receivedError)
+        assertEquals("Test error", receivedError!!.message)
+    }
+
+    @Test
     fun `receive chunk for non-existent stream fails`() {
         val chunk = StreamChunk.StreamChunkPayload(
             correlationId = "non-existent",

@@ -2,7 +2,6 @@ package site.asm0dey.relay.domain
 
 import kotlinx.coroutines.delay
 import java.util.concurrent.ConcurrentHashMap
-import kotlin.time.Duration
 import kotlin.time.ExperimentalTime
 import kotlin.time.TimeSource
 
@@ -10,7 +9,6 @@ import kotlin.time.TimeSource
 class StreamChunkSender(
     private val streamId: String,
     private val maxInFlight: Int,
-    private val timeout: Duration,
     private val sendBinary: suspend (ByteArray) -> Unit
 ) {
     private val inflightChunks = ConcurrentHashMap<Long, TimeSource.Monotonic.ValueTimeMark>()
@@ -23,7 +21,7 @@ class StreamChunkSender(
         sendBinary(
             Envelope(correlationId = streamId, payload = StreamChunk(chunk)).toByteArray()
         )
-        inflightChunks.put(chunk.chunkIndex, timeSource.markNow())
+        inflightChunks[chunk.chunkIndex] = timeSource.markNow()
     }
 
     fun onAck(ack: StreamAck.StreamAckPayload) {

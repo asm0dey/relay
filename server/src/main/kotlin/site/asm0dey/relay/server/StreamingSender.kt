@@ -2,7 +2,6 @@ package site.asm0dey.relay.server
 
 import io.smallrye.mutiny.coroutines.awaitSuspending
 import site.asm0dey.relay.domain.*
-import kotlin.time.toKotlinDuration
 
 class StreamingSender(
     socketService: SocketService,
@@ -15,7 +14,6 @@ class StreamingSender(
     private val sender = StreamChunkSender(
         streamId,
         config.maxInflightChunks,
-        config.chunkTimeout.toKotlinDuration(),
         sendBinary = { connection.sendBinary(it).awaitSuspending() }
     )
     private var chunkIndex = 0L

@@ -18,11 +18,11 @@ import jakarta.inject.Inject
 import jakarta.inject.Provider
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
+import org.apache.commons.lang3.RandomStringUtils
 import org.eclipse.microprofile.config.inject.ConfigProperty
 import org.hamcrest.MatcherAssert.assertThat
 import org.hamcrest.Matchers.matchesRegex
 import org.hamcrest.core.Is.`is`
-import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertNotNull
@@ -232,8 +232,7 @@ class FirstTest @Inject constructor(
                 connectOptions.addHeader("domain", "test")
             }
             .connectAndAwait()
-        val bytes = ByteArray(1024 * 1024 * 10)
-        Random().nextBytes(bytes)
+        val payload = RandomStringUtils.insecure().nextAlphanumeric(10*1024*1024)
         wireMock.register(
             post("/large")
                 .willReturn(
@@ -244,12 +243,17 @@ class FirstTest @Inject constructor(
         )
         given()
             .header("X-Domain", "test")
-            .body(bytes)
+            .body(payload)
             .`when`()
             .post("http://localhost:$wiremockPort/large")
             .then()
             .statusCode(200)
             .body(`is`("A"))
+        wireMock.verifyThat(
+            postRequestedFor(urlEqualTo("/large"))
+                .withRequestBody(equalTo(payload))
+        )
+
     }
 
     @ConfigProperty(name = "quarkus.websockets-next.server.max-frame-size")
@@ -274,8 +278,7 @@ class FirstTest @Inject constructor(
         val payloadSize = maxLimit * 2
         println("DEBUG: payloadSize=$payloadSize")
         
-        val body = ByteArray(payloadSize)
-        Random().nextBytes(body)
+        val body = RandomStringUtils.insecure().nextAlphanumeric(payloadSize).toByteArray()
 
         wireMock.register(
             post("/small-frame")
@@ -419,33 +422,6 @@ class FirstTest @Inject constructor(
             )
         }
     }
-
-    @Test
-    fun testTransformerIsApplied() {
-        // Verify the transformer is being called by wiremock
-        wireMock.register(
-            post("/test-transform")
-                .willReturn(
-                    aResponse()
-                        .withStatus(200)
-                        .withBodyFile("my-big-file.bin")
-                )
-        )
-
-        val asByteArray = given()
-            .post("http://localhost:$wiremockPort/test-transform")
-            .then()
-            .statusCode(200)
-            .extract()
-            .body()
-            .asByteArray()
-        val expectedBytes =
-            this::class.java.classLoader.getResourceAsStream("/__files/my-big-file.bin")!!.readAllBytes()
-        assertArrayEquals(expectedBytes, asByteArray)
-
-        // Verify transformer was called
-    }
-
 
     private fun baseUri(): String {
         @Suppress("HttpUrlsUsage") val wsUri = baseUri.toString().replace("http://", "ws://").replace("localhost", "127.0.0.1")

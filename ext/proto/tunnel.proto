@@ -20,7 +20,6 @@ message RegisterAck {
 }
 
 message HttpRequest {
-  string request_id = 1;
   string method = 2;
   string path = 3;
   map<string, string> headers = 4;
@@ -29,7 +28,6 @@ message HttpRequest {
 }
 
 message HttpResponse {
-  string request_id = 1;
   int32 status = 2;
   map<string, string> headers = 3;
   bool has_body = 4;
@@ -37,14 +35,12 @@ message HttpResponse {
 }
 
 message BodyChunk {
-  string request_id = 1;
   optional bytes  data = 2;
   bool   last = 3;
 }
 
 message WsOpen {
   string              connection_id = 1;
-  string              request_id = 2;
   map<string, string> headers = 3;
 }
 

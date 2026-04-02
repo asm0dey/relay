@@ -1,5 +1,6 @@
 package site.asm0dey.relay.server
 
+import io.grpc.Status.UNAUTHENTICATED
 import io.quarkus.grpc.GrpcService
 import io.smallrye.mutiny.Multi
 import io.smallrye.mutiny.Uni
@@ -10,11 +11,10 @@ import site.asm0dey.relay.domain.*
 import site.asm0dey.relay.domain.ClientMessage.PayloadCase.*
 import site.asm0dey.relay.domain.TunnelService
 import java.io.InputStream
+import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.BlockingQueue
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
-import kotlin.concurrent.thread
 import kotlin.random.Random
 
 sealed class RequestResult {
@@ -44,16 +44,20 @@ class TunnelService(
 
 
     override fun openTunnel(request: Multi<ClientMessage>): Multi<ServerMessage> {
-        val outgoingQueue = LinkedBlockingQueue<ServerMessage>()
+        val outgoingQueue = ArrayBlockingQueue<ServerMessage>(100)
 
         return Multi.createFrom().emitter { emitter ->
-            // Subscribe to incoming client messages
             request.subscribe().with(
                 { clientMessage ->
                     val correlationId = clientMessage.correlationId
                     when (clientMessage.payloadCase) {
                         REGISTER -> {
-                            clientMessage.auth(correlationId, outgoingQueue)
+                            if (!tryAuthenticate(clientMessage, correlationId, outgoingQueue))
+                                emitter.fail(
+                                    UNAUTHENTICATED
+                                        .withDescription("Invalid auth token")
+                                        .asException()
+                                )
                         }
 
                         HTTP_RESPONSE -> pendingRequests[correlationId]?.put(RequestResult.Metadata(clientMessage.httpResponse))
@@ -73,8 +77,7 @@ class TunnelService(
                 { emitter.complete() }              // client disconnected → end outbound stream
             )
 
-            // Drain the queue on a background thread
-            thread {
+            Thread.ofVirtual().start {
                 try {
                     while (!emitter.isCancelled) {
                         val message = outgoingQueue.take()
@@ -87,19 +90,21 @@ class TunnelService(
         }
     }
 
-    private fun ClientMessage.auth(
+    private fun tryAuthenticate(
+        message: ClientMessage,
         correlationId: String,
-        outgoingQueue: LinkedBlockingQueue<ServerMessage>
-    ) {
-        val authToken = this.register.authToken
+        outgoingQueue: BlockingQueue<ServerMessage>
+    ): Boolean {
+        val authToken = message.register.authToken
+        val isAuthTokenValid = authToken == null || authToken !in allowedSecretKeys
         val ack = serverMessage {
             this.correlationId = correlationId
             this.ack = registerAck {
-                if (authToken == null || authToken !in allowedSecretKeys) {
+                if (isAuthTokenValid) {
                     success = false
                     error = "Invalid auth token"
                 } else {
-                    val domain = this@auth.register.desiredSubdomain ?: Random.nextInt().toString()
+                    val domain = message.register.desiredSubdomain ?: Random.nextInt().toString()
                     clients[domain] = outgoingQueue
                     success = true
                     assignedSubdomain = domain
@@ -108,45 +113,16 @@ class TunnelService(
             }
         }
         outgoingQueue.put(ack)
+        return isAuthTokenValid
     }
 
     private val clients = ConcurrentHashMap<String, BlockingQueue<ServerMessage>>()
     private val pendingRequests = ConcurrentHashMap<String, BlockingQueue<RequestResult>>()
-    /*
-        override fun openTunnel(requests: Flow<ClientMessage>): Flow<ServerMessage> = channelFlow {
-            requests.flowOn(context).collect { clientMessage ->
-                val correlationId = clientMessage.correlationId
-                when (clientMessage.payloadCase) {
-                    REGISTER -> auth(clientMessage.register, correlationId)
-                    HTTP_RESPONSE -> pendingRequests[correlationId]?.send(RequestResult.Metadata(clientMessage.httpResponse))
-                    CHUNK -> {
-                        pendingRequests[correlationId]?.send(RequestResult.Chunk(clientMessage.chunk))
-                        if (clientMessage.chunk.last) {
-                            pendingRequests.remove(correlationId)?.close()
-                        }
-                    }
-
-                    WS_UPGRADE -> {
-                        // pendingRequests[clientMessage.correlationId] = CompletableDeferred()
-                    }
-
-                    WS_FRAME -> {
-                        val data = clientMessage.wsFrame.data.toByteArray()
-                        val connectionId = clientMessage.wsFrame.connectionId
-                        val isBinary = clientMessage.wsFrame.isBinary
-                    }
-
-                    WS_CLOSE -> TODO()
-                    PAYLOAD_NOT_SET -> TODO()
-                }
-            }
-        }
-    */
 
     fun startRequest(domain: String, message: ServerMessage): Pair<HttpResponse, InputStream> {
         val correlationId = message.correlationId
         if (correlationId.isEmpty()) error("Correlation ID must be set")
-        val queue = LinkedBlockingQueue<RequestResult>()
+        val queue = ArrayBlockingQueue<RequestResult>(50)
         pendingRequests[correlationId] = queue
         try {
             val clientQueue = clients[domain] ?: error("Client $domain not connected")

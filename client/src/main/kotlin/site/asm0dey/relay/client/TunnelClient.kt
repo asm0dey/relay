@@ -135,18 +135,18 @@ class TunnelClient(val parsedResult: CommandLine.ParseResult) {
 
     private fun processChunk(serverMessage: ServerMessage) {
         val chunk = serverMessage.chunk
-        LOG.debug("Processing chunk for request ${serverMessage.httpRequest.requestId}, last=${chunk.last}")
-        incomingRequests[serverMessage.httpRequest.requestId]?.offer(chunk.data.toByteArray())
-        if (chunk.last) incomingRequests.remove(serverMessage.httpRequest.requestId)
+        LOG.debug("Processing chunk for request ${serverMessage.correlationId}, last=${chunk.last}")
+        incomingRequests[serverMessage.correlationId]?.offer(chunk.data.toByteArray())
+        if (chunk.last) incomingRequests.remove(serverMessage.correlationId)
     }
 
     private fun processHttpRequest(serverMessage: ServerMessage, localPort: Int) {
-        LOG.debug("Processing HTTP request: ${serverMessage.httpRequest.method} ${serverMessage.httpRequest.path}, requestId=${serverMessage.httpRequest.requestId}, hasBody=${serverMessage.httpRequest.hasBody}")
+        LOG.debug("Processing HTTP request: ${serverMessage.httpRequest.method} ${serverMessage.httpRequest.path}, correlationId=${serverMessage.correlationId}, hasBody=${serverMessage.httpRequest.hasBody}")
         // Buffered queue to decouple chunk producer from HTTP request consumer
         val bodyQueue = LinkedBlockingQueue<ByteArray>()
-        incomingRequests[serverMessage.httpRequest.requestId] = bodyQueue
+        incomingRequests[serverMessage.correlationId] = bodyQueue
         if (!serverMessage.httpRequest.hasBody) {
-            incomingRequests.remove(serverMessage.httpRequest.requestId)
+            incomingRequests.remove(serverMessage.correlationId)
         }
         // Launch a new coroutine to handle each HTTP request concurrently
         serverMessage.handleHttpRequest(bodyQueue, 1.minutes, localPort)
@@ -174,7 +174,7 @@ class TunnelClient(val parsedResult: CommandLine.ParseResult) {
         timeout: Duration,
         localPort: Int
     ) {
-        LOG.debug("Handling HTTP request: ${httpRequest.method} ${httpRequest.path}, requestId=${httpRequest.requestId}")
+        LOG.debug("Handling HTTP request: ${httpRequest.method} ${httpRequest.path}, correlationId=$correlationId")
         // Try to get the first chunk immediately to determine if the request has a body
         val firstChunk = bodyQueue.poll()
 
@@ -194,7 +194,6 @@ class TunnelClient(val parsedResult: CommandLine.ParseResult) {
                         hasBody = false
                         status = 502
                         statusMessage = "Bad Gateway: ${e.message}"
-                        requestId = httpRequest.requestId
                     }
                 })
             }
@@ -207,7 +206,7 @@ class TunnelClient(val parsedResult: CommandLine.ParseResult) {
             "${(green)("▶ RES")} " +
                     "${(white)(resp.statusLine.statusCode.toString())} " +
                     "${(green)(resp.statusLine.reasonPhrase)}, " +
-                    italic((cyan)("Request ID: ${httpRequest.requestId}"))
+                    italic((cyan)("Request ID: ${correlationId}"))
         )
         outgoingQueue.add(clientMessage {
             correlationId = this.correlationId
@@ -216,7 +215,6 @@ class TunnelClient(val parsedResult: CommandLine.ParseResult) {
                 headers.putAll(resp.allHeaders.associate { x -> x.name to x.value })
                 status = resp.statusLine.statusCode
                 statusMessage = resp.statusLine.reasonPhrase
-                requestId = httpRequest.requestId
             }
         })
 
@@ -238,7 +236,6 @@ class TunnelClient(val parsedResult: CommandLine.ParseResult) {
                             data = copyFrom(bar)
                             last = false
                         }
-                        requestId = this@processHttpResponse.httpRequest.requestId
                     }
                 })
                 if (noMoreBytes) break
@@ -284,7 +281,7 @@ class TunnelClient(val parsedResult: CommandLine.ParseResult) {
         if (httpRequest.queryMap.isNotEmpty())
             t.println((gray)(httpRequest.queryMap.entries.joinToString(" ") { "${it.key}=${it.value}" }))
         if (httpRequest.headersMap.isNotEmpty())
-            t.println((cyan)("Request ID: ${httpRequest.requestId}"))
+            t.println((cyan)("Request ID: ${correlationId}"))
         t.println(table {
             borderType = SQUARE
             borderStyle = brightBlue
@@ -355,7 +352,7 @@ private fun buildStreamingEntity(
 
             val bytes = bodyQueue.poll(remaining, TimeUnit.NANOSECONDS)
             if (bytes == null) {
-                if (!incomingRequests.containsKey(httpRequest.requestId)) {
+                if (!incomingRequests.containsKey(correlationId)) {
                     // No more chunks expected and queue is empty
                     break
                 }
@@ -365,7 +362,7 @@ private fun buildStreamingEntity(
 
             outStream.write(bytes)
 
-            if (bodyQueue.isEmpty() && !incomingRequests.containsKey(httpRequest.requestId)) {
+            if (bodyQueue.isEmpty() && !incomingRequests.containsKey(correlationId)) {
                 break
             }
         }
@@ -378,14 +375,13 @@ private fun buildStreamingEntity(
         correlationId: String,
         outgoingQueue: LinkedBlockingQueue<ClientMessage>,
     ) {
-        incomingRequests.remove(httpRequest.requestId)
+        incomingRequests.remove(correlationId)
         outgoingQueue.add(clientMessage {
             this.correlationId = correlationId
             httpResponse = httpResponse {
                 hasBody = false
                 status = 504
                 statusMessage = "Gateway Timeout"
-                requestId = httpRequest.requestId
             }
         })
     }

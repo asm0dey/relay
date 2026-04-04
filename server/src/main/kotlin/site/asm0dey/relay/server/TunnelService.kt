@@ -1,5 +1,6 @@
 package site.asm0dey.relay.server
 
+import com.google.protobuf.ByteString
 import io.grpc.Status.UNAUTHENTICATED
 import io.quarkus.grpc.GrpcService
 import io.smallrye.mutiny.Multi
@@ -9,7 +10,6 @@ import jakarta.inject.Singleton
 import org.eclipse.microprofile.config.inject.ConfigProperty
 import site.asm0dey.relay.domain.*
 import site.asm0dey.relay.domain.ClientMessage.PayloadCase.*
-import site.asm0dey.relay.domain.TunnelService
 import java.io.InputStream
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.BlockingQueue
@@ -25,8 +25,7 @@ sealed class RequestResult {
 
 @GrpcService
 @Singleton
-class TunnelService(
-) : TunnelService {
+class TunnelService : MutinyTunnelServiceGrpc.TunnelServiceImplBase() {
     @ConfigProperty(name = "relay.allowed-secret-keys")
     lateinit var allowedSecretKeys: List<String>
 
@@ -80,8 +79,7 @@ class TunnelService(
             Thread.ofVirtual().start {
                 try {
                     while (!emitter.isCancelled) {
-                        val message = outgoingQueue.take()
-                        emitter.emit(message)
+                        emitter.emit(outgoingQueue.take())
                     }
                 } catch (_: InterruptedException) {
                     emitter.complete()
@@ -96,11 +94,11 @@ class TunnelService(
         outgoingQueue: BlockingQueue<ServerMessage>
     ): Boolean {
         val authToken = message.register.authToken
-        val isAuthTokenValid = authToken == null || authToken !in allowedSecretKeys
-        val ack = serverMessage {
+        val isAuthTokenValid = allowedSecretKeys.isEmpty() || authToken in allowedSecretKeys
+        val ackMsg = serverMessage {
             this.correlationId = correlationId
             this.ack = registerAck {
-                if (isAuthTokenValid) {
+                if (!isAuthTokenValid) {
                     success = false
                     error = "Invalid auth token"
                 } else {
@@ -112,14 +110,14 @@ class TunnelService(
                 }
             }
         }
-        outgoingQueue.put(ack)
+        outgoingQueue.put(ackMsg)
         return isAuthTokenValid
     }
 
     private val clients = ConcurrentHashMap<String, BlockingQueue<ServerMessage>>()
     private val pendingRequests = ConcurrentHashMap<String, BlockingQueue<RequestResult>>()
 
-    fun startRequest(domain: String, message: ServerMessage): Pair<HttpResponse, InputStream> {
+    fun startRequest(domain: String, message: ServerMessage, body: ByteArray? = null): Pair<HttpResponse, InputStream> {
         val correlationId = message.correlationId
         if (correlationId.isEmpty()) error("Correlation ID must be set")
         val queue = ArrayBlockingQueue<RequestResult>(50)
@@ -127,6 +125,28 @@ class TunnelService(
         try {
             val clientQueue = clients[domain] ?: error("Client $domain not connected")
             clientQueue.put(message)
+            if (body != null && body.isNotEmpty()) {
+                val chunkSize = 4 * 1024 * 1024
+                var offset = 0
+                while (offset < body.size) {
+                    val end = minOf(offset + chunkSize, body.size)
+                    clientQueue.put(serverMessage {
+                        this.correlationId = correlationId
+                        chunk = bodyChunk {
+                            data = ByteString.copyFrom(body, offset, end - offset)
+                            last = false
+                        }
+                    })
+                    offset = end
+                }
+                clientQueue.put(serverMessage {
+                    this.correlationId = correlationId
+                    chunk = bodyChunk {
+                        data = ByteString.EMPTY
+                        last = true
+                    }
+                })
+            }
             val firstResult = queue.poll(30, TimeUnit.SECONDS)
             if (firstResult !is RequestResult.Metadata) {
                 pendingRequests.remove(correlationId)

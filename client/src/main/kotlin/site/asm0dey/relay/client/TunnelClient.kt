@@ -9,6 +9,7 @@ import com.github.ajalt.mordant.terminal.Terminal
 import com.google.protobuf.ByteString.copyFrom
 import io.grpc.ManagedChannelBuilder
 import io.smallrye.mutiny.Multi
+import io.smallrye.mutiny.subscription.Cancellable
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.inject.Provider
 import org.apache.http.HttpEntity
@@ -28,6 +29,7 @@ import java.io.InputStream
 import java.io.OutputStream
 import java.net.URI
 import java.nio.ByteBuffer
+import java.time.temporal.ChronoUnit.SECONDS
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CountDownLatch
@@ -43,12 +45,12 @@ import kotlin.uuid.Uuid
 
 
 @ApplicationScoped
-class TunnelClient(val parsedResult: CommandLine.ParseResult) {
+class TunnelClient(
+    val parsedResult: CommandLine.ParseResult,
+    @param:ConfigProperty(name = "quarkus.grpc.server.max-inbound-message-size") var maxInboundMessageSizeProvider: Provider<Optional<Int>>,
+) {
     @Suppress("PrivatePropertyName")
     private val LOG = LoggerFactory.getLogger(TunnelClient::class.java)
-
-    @ConfigProperty(name = "quarkus.grpc.server.max-inbound-message-size")
-    private lateinit var maxInboundMessageSizeProvider: Provider<Optional<Int>>
 
     private val relay by lazy {
         val name = parsedResult.matchedOption("remote-host").getValue<String>()
@@ -75,12 +77,17 @@ class TunnelClient(val parsedResult: CommandLine.ParseResult) {
     private val registrationLatch = CountDownLatch(1)
     private val registrationSuccess = AtomicBoolean(false)
     private val httpClient = HttpClients.createDefault()
+    private lateinit var subscription: Cancellable
+    private val isStarted = AtomicBoolean(false)
 
     @OptIn(ExperimentalUuidApi::class)
     fun start(localPort: Int = parsedResult.matchedPositional(0).getValue()) {
-//        MutinyTunnelServiceGrpc.newMutinyStub()
-        relay.ping(pingMessage { })
+        if (!isStarted.compareAndSet(false, true)) {
+            LOG.debug("TunnelClient already started, skipping")
+            return
+        }
         LOG.debug("Launching tunnel opening job")
+        val pong = relay.ping(pingMessage { }).await().atMost(java.time.Duration.of(30, SECONDS))
         val streams = Multi.createBy().concatenating().streams(
             Multi.createFrom().item(clientMessage {
                 correlationId = Uuid.random().toHexDashString()
@@ -99,7 +106,7 @@ class TunnelClient(val parsedResult: CommandLine.ParseResult) {
             }
         )
 
-        val subscription = relay.openTunnel(streams)
+        subscription = relay.openTunnel(streams)
             .subscribe().with(
                 { serverMessage ->
                     when (serverMessage.payloadCase) {
@@ -209,7 +216,7 @@ class TunnelClient(val parsedResult: CommandLine.ParseResult) {
                     italic((cyan)("Request ID: ${correlationId}"))
         )
         outgoingQueue.add(clientMessage {
-            correlationId = this.correlationId
+            correlationId = this@processHttpResponse.correlationId
             httpResponse = httpResponse {
                 this.hasBody = content != null
                 headers.putAll(resp.allHeaders.associate { x -> x.name to x.value })
@@ -224,7 +231,7 @@ class TunnelClient(val parsedResult: CommandLine.ParseResult) {
                 val read = it.read(bar)
                 val noMoreBytes = read == -1
                 outgoingQueue.add(clientMessage {
-                    correlationId = this.correlationId
+                    correlationId = this@processHttpResponse.correlationId
                     chunk = bodyChunk {
                         if (noMoreBytes) {
                             data = copyFrom(ByteArray(0))
@@ -246,7 +253,7 @@ class TunnelClient(val parsedResult: CommandLine.ParseResult) {
     private fun ServerMessage.buildHttpRequest(
         localHost: String?,
         localPort: Int,
-        firstChunk: ByteArray,
+        firstChunk: ByteArray?,
         bodyQueue: LinkedBlockingQueue<ByteArray>,
         timeout: Duration
     ): HttpRequestBase {
@@ -261,7 +268,10 @@ class TunnelClient(val parsedResult: CommandLine.ParseResult) {
             uRIBuilder.build()
         }
         val request = buildRequest(uri)
-        httpRequest.headersMap.forEach { (k, v) -> request.addHeader(k, v) }
+        val skipHeaders = setOf("content-length", "transfer-encoding")
+        httpRequest.headersMap.forEach { (k, v) ->
+            if (k.lowercase() !in skipHeaders) request.addHeader(k, v)
+        }
         if (request is HttpEntityEnclosingRequestBase) {
             request.entity = buildStreamingEntity(
                 firstChunk,
@@ -309,11 +319,13 @@ class TunnelClient(val parsedResult: CommandLine.ParseResult) {
         else -> throw IllegalArgumentException("Unknown method: ${httpRequest.method}")
     }
 
-
+    fun stop(){
+        subscription.cancel()
+    }
 }
 
 private fun buildStreamingEntity(
-    firstChunk: ByteArray,
+    firstChunk: ByteArray?,
     bodyQueue: LinkedBlockingQueue<ByteArray>,
     incomingRequests: ConcurrentHashMap<String, *>,
     httpRequest: HttpRequest,
@@ -338,7 +350,7 @@ private fun buildStreamingEntity(
     override fun getContent(): InputStream = throw UnsupportedOperationException()
 
     override fun writeTo(outStream: OutputStream) {
-        outStream.write(firstChunk)
+        if (firstChunk != null) outStream.write(firstChunk)
 
         val timeoutNanos = timeout.inWholeNanoseconds
         val startTime = System.nanoTime()
@@ -346,7 +358,7 @@ private fun buildStreamingEntity(
         while (true) {
             val remaining = timeoutNanos - (System.nanoTime() - startTime)
             if (remaining <= 0) {
-                handleTimeout(httpRequest, correlationId, outgoingQueue)
+                handleTimeout(correlationId, outgoingQueue)
                 return
             }
 
@@ -356,7 +368,7 @@ private fun buildStreamingEntity(
                     // No more chunks expected and queue is empty
                     break
                 }
-                handleTimeout(httpRequest, correlationId, outgoingQueue)
+                handleTimeout(correlationId, outgoingQueue)
                 return
             }
 
@@ -371,7 +383,6 @@ private fun buildStreamingEntity(
     }
 
     private fun handleTimeout(
-        httpRequest: HttpRequest,
         correlationId: String,
         outgoingQueue: LinkedBlockingQueue<ClientMessage>,
     ) {

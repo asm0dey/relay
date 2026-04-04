@@ -6,6 +6,7 @@ quarkus:
       max-inbound-message-size: 5242880
   http:
     port: 8080
+    host-enabled: true
   package:
     main-class: server
   websockets-next:
@@ -15,9 +16,11 @@ quarkus:
     grpc-kotlin:
       group-id: io.grpc
       artifact-id: grpc-kotlin-stub
-#  log:
+  log:
 #    category:
-#      "io.quarkus.grpc":
+#      "io.quarkus.vertx.http":
+#        level: DEBUG
+#      "io.quarkus.grpc.server":
 #        level: DEBUG
 #      "javax":
 #        level: INFO
@@ -35,7 +38,7 @@ quarkus:
 #        level: INFO
 #      "io.quarkiverse.wiremock":
 #        level: INFO
-#    level: DEBUG
+    level: INFO
 relay:
   domain: tunnel.example.com
   allowed-secret-keys: []

@@ -76,7 +76,6 @@ class RelayResource(
 
         val correlationId = UUID.randomUUID().toString()
         val protoRequest = httpRequest {
-            this.requestId = correlationId
             this.method = request.method().name()
             this.path = "/" + path + (if (request.query() != null) "?" + request.query() else "")
             request.headers().forEach { (k, v) ->
@@ -91,7 +90,7 @@ class RelayResource(
         }
 
         return try {
-            val (protoResponse, inputStream) = tunnelService.startRequest(subdomain, serverMsg)
+            val (protoResponse, inputStream) = tunnelService.startRequest(subdomain, serverMsg, body)
 
             val responseBuilder = Response.status(protoResponse.status)
             protoResponse.headersMap.forEach { (k, v) ->

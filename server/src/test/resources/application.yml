@@ -1,14 +1,25 @@
 relay:
   allowed-secret-keys:
     - secret
+  domain: localhost
 quarkus:
+  arc:
+    exclude-types:
+#      - "site.asm0dey.relay.client.TunnelClient"
+      - "site.asm0dey.relay.client.ClientMain"
   http:
-    test-port: 9900
-    port: 9901
+    test-port: 9097
+    port: 0
   grpc:
     server:
       enable-reflection-service: true
-      test-port: 9902
-      use-separate-server: true
+      use-separate-server: false
       is-plain-text-enabled: true
-      instances: 1
+#      port: 9098
+  log:
+    category:
+      "io.quarkus.grpc":
+        level: DEBUG
+  wiremock:
+    devservices:
+      files-mapping: src/test/resources

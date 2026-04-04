@@ -6,8 +6,10 @@ import io.quarkus.grpc.GrpcService
 import io.smallrye.mutiny.Multi
 import io.smallrye.mutiny.Uni
 import jakarta.annotation.PostConstruct
+import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import org.eclipse.microprofile.config.inject.ConfigProperty
+import org.slf4j.LoggerFactory
 import site.asm0dey.relay.domain.*
 import site.asm0dey.relay.domain.ClientMessage.PayloadCase.*
 import java.io.InputStream
@@ -26,16 +28,25 @@ sealed class RequestResult {
 @GrpcService
 @Singleton
 class TunnelService : MutinyTunnelServiceGrpc.TunnelServiceImplBase() {
+    private val log = LoggerFactory.getLogger(TunnelService::class.java)
+
     @ConfigProperty(name = "relay.allowed-secret-keys")
     lateinit var allowedSecretKeys: List<String>
 
     @ConfigProperty(name = "relay.domain")
     lateinit var tld: String
 
+    @Inject
+    lateinit var wsTunnelManager: WsTunnelManager
+
     @PostConstruct
     fun init() {
         println("Allowed secret keys: $allowedSecretKeys")
     }
+
+    fun hasClient(domain: String): Boolean = clients.containsKey(domain)
+
+    fun getClientQueue(domain: String): BlockingQueue<ServerMessage>? = clients[domain]
 
     override fun ping(request: PingMessage?): Uni<PongMessage?>? {
         return Uni.createFrom().item(pongMessage { })
@@ -68,12 +79,60 @@ class TunnelService : MutinyTunnelServiceGrpc.TunnelServiceImplBase() {
                             }
                         }
 
-                        WS_CLOSE, PAYLOAD_NOT_SET, WS_UPGRADE, WS_FRAME -> { /* TODO */
+                        WS_UPGRADE -> {
+                            val response = clientMessage.wsUpgrade
+                            log.debug("WS_UPGRADE received: connectionId={}, accepted={}", response.connectionId, response.accepted)
+                            wsTunnelManager.completeResponse(response.connectionId, response)
                         }
+
+                        WS_FRAME -> {
+                            val frame = clientMessage.wsFrame
+                            val conn = wsTunnelManager.getExternalConnection(frame.connectionId)
+                            if (conn != null) {
+                                if (frame.isBinary) {
+                                    conn.sendBinary(io.vertx.core.buffer.Buffer.buffer(frame.data.toByteArray()))
+                                        .subscribe().with({}, { err -> log.error("Error sending binary frame", err) })
+                                } else {
+                                    conn.sendText(frame.data.toStringUtf8())
+                                        .subscribe().with({}, { err -> log.error("Error sending text frame", err) })
+                                }
+                            } else {
+                                log.trace("WS_FRAME for unknown connectionId={}, silently dropped", frame.connectionId)
+                            }
+                        }
+
+                        WS_CLOSE -> {
+                            val close = clientMessage.wsClose
+                            log.debug("WS_CLOSE received: connectionId={}, code={}", close.connectionId, close.code)
+                            val conn = wsTunnelManager.getExternalConnection(close.connectionId)
+                            if (conn != null) {
+                                conn.close(io.quarkus.websockets.next.CloseReason(close.code, close.reason))
+                                    .subscribe().with({}, { err -> log.error("Error closing external connection", err) })
+                            }
+                            wsTunnelManager.closeTunnel(close.connectionId, close.code, close.reason)
+                        }
+
+                        PAYLOAD_NOT_SET -> { /* ignore */ }
                     }
                 },
-                { error -> emitter.fail(error) },   // propagate upstream errors
-                { emitter.complete() }              // client disconnected → end outbound stream
+                { error ->
+                    // Client agent error — cleanup WS tunnels for this domain
+                    val domain = queueToDomain.remove(outgoingQueue)
+                    if (domain != null) {
+                        clients.remove(domain)
+                        wsTunnelManager.cleanupForDomain(domain)
+                    }
+                    emitter.fail(error)
+                },
+                {
+                    // Client agent disconnected — cleanup WS tunnels for this domain
+                    val domain = queueToDomain.remove(outgoingQueue)
+                    if (domain != null) {
+                        clients.remove(domain)
+                        wsTunnelManager.cleanupForDomain(domain)
+                    }
+                    emitter.complete()
+                }
             )
 
             Thread.ofVirtual().start {
@@ -104,6 +163,7 @@ class TunnelService : MutinyTunnelServiceGrpc.TunnelServiceImplBase() {
                 } else {
                     val domain = message.register.desiredSubdomain ?: Random.nextInt().toString()
                     clients[domain] = outgoingQueue
+                    queueToDomain[outgoingQueue] = domain
                     success = true
                     assignedSubdomain = domain
                     publicUrl = "$domain.${tld}"
@@ -116,6 +176,8 @@ class TunnelService : MutinyTunnelServiceGrpc.TunnelServiceImplBase() {
 
     private val clients = ConcurrentHashMap<String, BlockingQueue<ServerMessage>>()
     private val pendingRequests = ConcurrentHashMap<String, BlockingQueue<RequestResult>>()
+    // Track domain for each outgoing queue to enable cleanup on gRPC disconnect
+    private val queueToDomain = ConcurrentHashMap<BlockingQueue<ServerMessage>, String>()
 
     fun startRequest(domain: String, message: ServerMessage, body: ByteArray? = null): Pair<HttpResponse, InputStream> {
         val correlationId = message.correlationId

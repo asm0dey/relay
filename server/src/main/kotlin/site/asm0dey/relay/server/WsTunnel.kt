@@ -9,9 +9,6 @@ data class WsTunnel(
 ) {
     enum class TunnelState { CONNECTING, OPEN, CLOSING, CLOSED }
 
-    val isEstablished: Boolean
-        get() = state == TunnelState.OPEN
-
     fun establish() {
         require(state == TunnelState.CONNECTING) { "Cannot establish tunnel from state: $state" }
         state = TunnelState.OPEN

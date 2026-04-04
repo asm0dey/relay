@@ -4,6 +4,7 @@ quarkus:
     server:
       use-separate-server: false
       max-inbound-message-size: 5242880
+      keep-alive-time: 60s
   http:
     port: 8080
     host-enabled: true
@@ -42,4 +43,8 @@ quarkus:
 relay:
   domain: tunnel.example.com
   allowed-secret-keys: []
+  websocket:
+    max-tunnels-per-domain: 100
+    upgrade-timeout: 30s
+    path: /ws-upgrade/{domain}
 

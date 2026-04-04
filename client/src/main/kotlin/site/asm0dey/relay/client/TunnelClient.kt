@@ -36,6 +36,7 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import jakarta.inject.Inject
 import kotlin.concurrent.thread
 import kotlin.system.exitProcess
 import kotlin.time.Duration
@@ -49,6 +50,9 @@ class TunnelClient(
     val parsedResult: CommandLine.ParseResult,
     @param:ConfigProperty(name = "quarkus.grpc.server.max-inbound-message-size") var maxInboundMessageSizeProvider: Provider<Optional<Int>>,
 ) {
+    @Inject
+    lateinit var wsLocalConnector: WsLocalConnector
+
     @Suppress("PrivatePropertyName")
     private val LOG = LoggerFactory.getLogger(TunnelClient::class.java)
 
@@ -113,11 +117,14 @@ class TunnelClient(
                         ACK -> processRegistrationResponse(serverMessage)
                         HTTP_REQUEST -> processHttpRequest(serverMessage, localPort)
                         CHUNK -> processChunk(serverMessage)
-                        WS_OPEN -> TODO()
-                        WS_UPGRADE -> TODO()
-                        WS_FRAME -> TODO()
-                        WS_CLOSE -> TODO()
-                        PAYLOAD_NOT_SET -> TODO()
+                        WS_OPEN -> processWsOpen(serverMessage, localPort)
+                        WS_UPGRADE -> {
+                            // Server→client WS_UPGRADE is not expected; log and ignore
+                            LOG.debug("Unexpected WS_UPGRADE from server, ignoring")
+                        }
+                        WS_FRAME -> processWsFrame(serverMessage)
+                        WS_CLOSE -> processWsClose(serverMessage)
+                        PAYLOAD_NOT_SET -> LOG.trace("Empty payload received, ignoring")
                     }
                 },
                 { error ->
@@ -173,6 +180,52 @@ class TunnelClient(
             registrationLatch.countDown()
             exitProcess(1)
         }
+    }
+
+    private fun processWsOpen(serverMessage: ServerMessage, localPort: Int) {
+        val wsOpen = serverMessage.wsOpen
+        val connectionId = wsOpen.connectionId
+        LOG.debug("WS_OPEN received: connectionId={}", connectionId)
+
+        val localHost = parsedResult.matchedOption("local-host").getValue<String>()
+        val path = wsOpen.headersMap["path"] ?: "/"
+
+        thread {
+            val result = wsLocalConnector.connect(
+                connectionId = connectionId,
+                path = path,
+                headers = wsOpen.headersMap,
+                localHost = localHost,
+                localPort = localPort,
+                outgoingQueue = outgoingQueue,
+            )
+
+            outgoingQueue.add(clientMessage {
+                correlationId = connectionId
+                wsUpgrade = wsUpgradeResponseX {
+                    this.connectionId = connectionId
+                    accepted = result.accepted
+                    statusCode = if (result.accepted) 101 else result.statusCode
+                    subprotocol = result.subprotocol
+                }
+            })
+        }
+    }
+
+    private fun processWsFrame(serverMessage: ServerMessage) {
+        val frame = serverMessage.wsFrame
+        LOG.trace("WS_FRAME received: connectionId={}, binary={}", frame.connectionId, frame.isBinary)
+        try {
+            wsLocalConnector.sendFrame(frame.connectionId, frame.data.toByteArray(), frame.isBinary)
+        } catch (e: Exception) {
+            LOG.error("Error forwarding WS frame to local app: {}", e.message)
+        }
+    }
+
+    private fun processWsClose(serverMessage: ServerMessage) {
+        val close = serverMessage.wsClose
+        LOG.debug("WS_CLOSE received: connectionId={}, code={}", close.connectionId, close.code)
+        wsLocalConnector.close(close.connectionId, close.code, close.reason)
     }
 
     @OptIn(ExperimentalUuidApi::class)

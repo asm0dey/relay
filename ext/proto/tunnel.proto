@@ -56,6 +56,7 @@ message WsFrame {
   string connection_id = 1;
   bytes  data = 2;
   bool   is_binary = 3;
+  bool   is_ping = 4;
 }
 
 message WsCloseX {

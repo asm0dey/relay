@@ -1,129 +1,161 @@
-# code-with-quarkus
+# Relay
 
-This project uses Quarkus, the Supersonic Subatomic Java Framework.
+Relay is a self-hosted tunneling service that exposes local HTTP and WebSocket applications to the internet through a gRPC channel. It lets you make services running on your machine accessible via a public domain — without relying on a SaaS provider, without rate limits, and without sharing your traffic with a third party.
 
-If you want to learn more about Quarkus, please visit its website: <https://quarkus.io/>.
+**Key differentiators over tools like ngrok:**
 
-## Running the application in dev mode
+- Fully self-hosted — you control the server, the domain, and the data
+- No SaaS dependency — works on your own infrastructure
+- No rate limits or connection caps
+- Supports HTTP, WebSocket, and large-file streaming out of the box
 
-You can run your application in dev mode that enables live coding using:
+## Architecture
 
-```shell script
-./mvnw quarkus:dev
+```
+External Client
+      |
+      v
+   Nginx (reverse proxy)
+      |
+      |-- HTTP requests --> proxy_pass --> Relay Server (:8080)
+      |                                        |
+      |-- WebSocket -----> proxy_pass --------/
+      |   (upgrade)                            |
+      |                             gRPC bidirectional stream
+      |-- gRPC ----------> grpc_pass ---------/
+                                               |
+                                               v
+                                        Client Agent
+                                               |
+                                               v
+                                     Local Application
 ```
 
-> **_NOTE:_**  Quarkus now ships with a Dev UI, which is available in dev mode only at <http://localhost:8080/q/dev/>.
+**How it works:** The Relay server runs on a publicly accessible host behind Nginx. A client agent runs alongside your local application and connects to the server over a persistent gRPC stream. When an external HTTP or WebSocket request arrives at the server, it is forwarded through the gRPC tunnel to the client agent, which proxies it to your local app. The response flows back the same way.
 
-## Packaging and running the application
+## Build and Run
 
-The application can be packaged using:
+### Prerequisites
 
-```shell script
+- **JDK 25** or later
+- **Maven 3.9+** (or use the included Maven wrapper `./mvnw`)
+
+### Build
+
+The project is a multi-module Maven build with two modules: `server` and `client`.
+
+Build everything from the repository root:
+
+```shell
 ./mvnw package
 ```
 
-It produces the `quarkus-run.jar` file in the `target/quarkus-app/` directory.
-Be aware that it’s not an _über-jar_ as the dependencies are copied into the `target/quarkus-app/lib/` directory.
+### Run the Server
 
-The application is now runnable using `java -jar target/quarkus-app/quarkus-run.jar`.
-
-If you want to build an _über-jar_, execute the following command:
-
-```shell script
-./mvnw package -Dquarkus.package.jar.type=uber-jar
+```shell
+java -jar server/target/quarkus-app/quarkus-run.jar
 ```
 
-The application, packaged as an _über-jar_, is now runnable using `java -jar target/*-runner.jar`.
+The server starts on port **8080** by default.
 
-## Creating a native executable
+### Run the Client
 
-You can create a native executable using:
-
-```shell script
-./mvnw package -Dnative
+```shell
+java -jar client/target/quarkus-app/quarkus-run.jar
 ```
 
-Or, if you don't have GraalVM installed, you can run the native executable build in a container using:
+The client connects to the server and registers your local application for tunneling.
 
-```shell script
-./mvnw package -Dnative -Dquarkus.native.container-build=true
+## Deploy with Nginx
+
+The Relay server serves HTTP, WebSocket, and gRPC traffic on a single port. Nginx routes each traffic type to the correct handler using separate `location` blocks.
+
+### DNS
+
+Set up a wildcard DNS record pointing to your Nginx host:
+
+```
+*.tunnel.example.com  A  <your-server-ip>
 ```
 
-You can then execute your native executable with: `./target/code-with-quarkus-1.0.0-SNAPSHOT-runner`
+Each tunneled application gets its own subdomain (e.g., `myapp.tunnel.example.com`).
 
-If you want to learn more about building native executables, please consult <https://quarkus.io/guides/maven-tooling>.
+### Nginx Configuration
 
-## Related Guides
+```nginx
+# Required for WebSocket upgrade header forwarding
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ''      close;
+}
 
-- Kotlin ([guide](https://quarkus.io/guides/kotlin)): Write your services in Kotlin
+server {
+    listen 80;
+    listen 443 ssl http2;
+    server_name *.tunnel.example.com;
 
-## Large File Streaming
+    # TLS configuration (adjust paths to your certificates)
+    # ssl_certificate     /etc/nginx/ssl/tunnel.example.com.crt;
+    # ssl_certificate_key /etc/nginx/ssl/tunnel.example.com.key;
 
-The relay supports streaming for large responses to avoid WebSocket message size limitations. Streaming is automatically enabled for responses exceeding the configured threshold.
+    # --- gRPC tunnel (HTTP/2) ---
+    location /tunnel.TunnelService/ {
+        grpc_pass grpc://localhost:8080;
 
-### Configuration
+        # Long-lived bidirectional stream — use generous timeouts
+        grpc_read_timeout 30m;
+        grpc_send_timeout 30m;
+        grpc_socket_keepalive on;
+    }
 
-Streaming behavior can be configured via application properties:
+    # --- WebSocket upgrade ---
+    location /ws-upgrade/ {
+        proxy_pass http://localhost:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 3600s;
+    }
+
+    # --- HTTP (default) ---
+    location / {
+        proxy_pass http://localhost:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+### Common Pitfalls
+
+**gRPC fails with connection errors:**
+The gRPC tunnel requires HTTP/2. Make sure `http2` is enabled on the `listen` directive (`listen 443 ssl http2;`). Without it, Nginx falls back to HTTP/1.1 and the gRPC stream cannot be established.
+
+**WebSocket connections return a plain HTTP response:**
+The `Upgrade` header is hop-by-hop and Nginx does not forward it by default. You must include the `map` block and set `proxy_set_header Upgrade` and `proxy_set_header Connection` in the WebSocket location. Without these, the upstream never sees the upgrade request.
+
+**Wildcard subdomain DNS:**
+Each tunneled application is identified by its subdomain. You need a wildcard DNS record (`*.tunnel.example.com`) pointing to your Nginx host, and a matching `server_name` in Nginx. Without this, only the bare domain will resolve.
+
+## Configuration Reference
+
+### Server
+
+Configuration is in `server/src/main/resources/application.yml`.
 
 | Property | Default | Description |
 |----------|---------|-------------|
-| `relay.stream-threshold` | 1048576 (1MB) | Content length threshold above which streaming is used |
-| `relay.chunk-size` | 65536 (64KB) | Size of each chunk sent over WebSocket |
-| `relay.max-in-flight-chunks` | 10 | Maximum number of chunks that can be sent without waiting for acknowledgment |
-| `relay.chunk-timeout` | 30s | Timeout for waiting for chunk acknowledgment |
-| `relay.local-app-idle-timeout` | 60s | Timeout for local app idle detection |
-
-### Streaming Protocol
-
-The streaming protocol uses these message types:
-
-1. **StreamInit** - Sent by the client to initiate a stream. Contains correlation ID, content type, content length, and headers.
-2. **StreamChunk** - Data chunks sent over WebSocket. Each chunk contains correlation ID, chunk index, data, and is-last flag.
-3. **StreamAck** - Acknowledgment sent by the server when it receives a chunk. Contains correlation ID and chunk index.
-4. **StreamError** - Error message sent when streaming fails. Contains correlation ID, error code, and message.
-
-### Stream Error Codes
-
-Possible error codes in streaming:
-
-- `CHUNK_OUT_OF_ORDER` - Chunk received out of expected order
-- `CHUNK_MISSING` - Expected chunk is missing
-- `STREAM_CANCELLED` - Stream was cancelled
-- `TIMEOUT` - Operation timed out
-- `INVALID_REQUEST` - Invalid streaming request
-- `PROTOCOL_ERROR` - Protocol-level error
-- `UPSTREAM_TIMEOUT` - Upstream (local app) timeout
-- `UPSTREAM_ERROR` - Upstream error
-
-## WebSocket Proxy Support
-
-The relay supports WebSocket proxying, allowing external clients to connect to local applications through WebSocket.
-
-### Connecting via WebSocket
-
-External clients can connect to the relay at:
-```
-ws://relay-host/ws-upgrade/{domain}
-```
-
-The `{domain}` parameter should match the subdomain of the registered local application.
-
-### Configuration
-
-WebSocket proxy behavior can be configured via application properties:
-
-| Property | Default | Description |
-|----------|---------|-------------|
-| `relay.ws-upgrade-timeout` | 30s | Timeout for WebSocket upgrade handshake |
-| `relay.ws-max-tunnels` | 100 | Maximum concurrent WebSocket tunnels per connection |
-| `relay.ws-ping-interval` | 30s | Keepalive ping interval |
-
-### Protocol
-
-WebSocket connections use these message types over the relay-to-local WebSocket channel:
-
-1. **WsUpgrade** - External client initiates WebSocket upgrade. Contains wsId, path, query, headers, and subprotocols.
-2. **WsUpgradeResponse** - Local app accepts/rejects upgrade. Contains accepted flag, selected subprotocol, status code, and headers.
-3. **WsMessage** - Wraps WebSocket frames (TEXT, BINARY, PING, PONG, CLOSE).
-4. **WsClose** - Notifies of connection close. Contains close code and reason.
-
+| `relay.domain` | `tunnel.example.com` | Base domain for tunnel subdomains |
+| `relay.allowed-secret-keys` | `[]` | List of allowed client authentication keys |
+| `relay.websocket.max-tunnels-per-domain` | `100` | Maximum concurrent WebSocket tunnels per domain |
+| `relay.websocket.upgrade-timeout` | `30s` | Timeout for WebSocket upgrade handshake |
+| `quarkus.grpc.server.max-inbound-message-size` | `5242880` (5 MB) | Maximum inbound gRPC message size |
+| `quarkus.grpc.server.keep-alive-time` | `60s` | gRPC keep-alive interval |
+| `quarkus.http.port` | `8080` | HTTP listen port |
+| `quarkus.websockets-next.server.auto-ping-interval` | `30s` | WebSocket keep-alive ping interval |

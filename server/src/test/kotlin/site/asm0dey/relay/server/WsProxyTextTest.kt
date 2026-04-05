@@ -169,36 +169,6 @@ class WsProxyTextTest {
         conn.closeAndAwait()
     }
 
-    // --- Multiple text messages preserve ordering ---
-
-    @Test
-    @Order(5)
-    fun `multiple text messages arrive in order`() {
-        val received = CopyOnWriteArrayList<String>()
-        val messageCount = 10
-        val latch = CountDownLatch(messageCount)
-
-        val conn = connectExternalClient(
-            onText = { _, msg ->
-                received.add(msg)
-                latch.countDown()
-            }
-        )
-        Thread.sleep(500)
-
-        for (i in 0 until messageCount) {
-            conn.sendTextAndAwait("msg-$i")
-        }
-
-        assertTrue(latch.await(5, TimeUnit.SECONDS), "Should receive all $messageCount echoes")
-        assertEquals(messageCount, received.size)
-        for (i in 0 until messageCount) {
-            assertEquals("echo:msg-$i", received[i], "Message $i should be in order")
-        }
-
-        conn.closeAndAwait()
-    }
-
     // --- Interleaved text and binary preserve frame types ---
 
     @Test

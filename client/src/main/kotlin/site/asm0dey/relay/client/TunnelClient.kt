@@ -51,7 +51,7 @@ class TunnelClient(
     @param:ConfigProperty(name = "quarkus.grpc.server.max-inbound-message-size") var maxInboundMessageSizeProvider: Provider<Optional<Int>>,
 ) {
     @Inject
-    lateinit var wsLocalConnector: WsLocalConnector
+    private lateinit var wsLocalConnector: WsLocalConnector
 
     @Suppress("PrivatePropertyName")
     private val LOG = LoggerFactory.getLogger(TunnelClient::class.java)
@@ -216,7 +216,7 @@ class TunnelClient(
         val frame = serverMessage.wsFrame
         LOG.trace("WS_FRAME received: connectionId={}, binary={}", frame.connectionId, frame.isBinary)
         try {
-            wsLocalConnector.sendFrame(frame.connectionId, frame.data.toByteArray(), frame.isBinary)
+            wsLocalConnector.sendFrame(frame.connectionId, frame.data.toByteArray(), frame.isBinary, frame.isPing)
         } catch (e: Exception) {
             LOG.error("Error forwarding WS frame to local app: {}", e.message)
         }

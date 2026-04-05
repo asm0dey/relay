@@ -21,8 +21,18 @@ import java.util.concurrent.ConcurrentHashMap
 class WsLocalConnector {
     private val log = LoggerFactory.getLogger(WsLocalConnector::class.java)
 
+    private val connectorProvider: () -> BasicWebSocketConnector
+
+    // CDI constructor
     @Inject
-    lateinit var connector: BasicWebSocketConnector
+    constructor(connector: BasicWebSocketConnector) {
+        this.connectorProvider = { connector }
+    }
+
+    // Test/manual constructor — no CDI required
+    constructor(connectorProvider: () -> BasicWebSocketConnector) {
+        this.connectorProvider = connectorProvider
+    }
 
     private val connections = ConcurrentHashMap<String, WebSocketClientConnection>()
 
@@ -43,7 +53,7 @@ class WsLocalConnector {
         log.debug("Connecting to local WS: ws://{}:{}{}, connectionId={}", localHost, localPort, path, connectionId)
 
         try {
-            var c = connector
+            var c = connectorProvider()
                 .baseUri(URI("http://$localHost:$localPort"))
                 .path(path)
 
@@ -103,15 +113,15 @@ class WsLocalConnector {
         }
     }
 
-    fun sendFrame(connectionId: String, data: ByteArray, isBinary: Boolean) {
+    fun sendFrame(connectionId: String, data: ByteArray, isBinary: Boolean, isPing: Boolean = false) {
         val conn = connections[connectionId] ?: run {
             log.trace("sendFrame: no local connection for connectionId={}, dropped", connectionId)
             return
         }
-        if (isBinary) {
-            conn.sendBinaryAndAwait(io.vertx.core.buffer.Buffer.buffer(data))
-        } else {
-            conn.sendTextAndAwait(String(data, Charsets.UTF_8))
+        when {
+            isPing -> conn.sendPingAndAwait(io.vertx.core.buffer.Buffer.buffer(data))
+            isBinary -> conn.sendBinaryAndAwait(io.vertx.core.buffer.Buffer.buffer(data))
+            else -> conn.sendTextAndAwait(String(data, Charsets.UTF_8))
         }
     }
 

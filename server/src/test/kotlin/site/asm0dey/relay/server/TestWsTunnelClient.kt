@@ -1,18 +1,14 @@
 package site.asm0dey.relay.server
 
-import com.google.protobuf.ByteString
 import io.grpc.ManagedChannelBuilder
 import io.quarkus.websockets.next.BasicWebSocketConnector
-import io.quarkus.websockets.next.CloseReason
-import io.quarkus.websockets.next.WebSocketClientConnection
 import io.smallrye.mutiny.Multi
 import io.smallrye.mutiny.subscription.Cancellable
 import org.slf4j.LoggerFactory
+import site.asm0dey.relay.client.WsLocalConnector
 import site.asm0dey.relay.domain.*
 import site.asm0dey.relay.domain.ServerMessage.PayloadCase.*
-import java.net.URI
 import java.util.UUID
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
@@ -32,11 +28,11 @@ class TestWsTunnelClient(
     private val domain: String,
     private val localWsPort: Int,
     private val localWsPath: String = "/",
-    private val connectorProvider: () -> BasicWebSocketConnector,
+    connectorProvider: () -> BasicWebSocketConnector,
 ) {
     private val log = LoggerFactory.getLogger(TestWsTunnelClient::class.java)
     private val outgoingQueue = LinkedBlockingQueue<ClientMessage>()
-    private val localConnections = ConcurrentHashMap<String, WebSocketClientConnection>()
+    private val wsLocalConnector = WsLocalConnector(connectorProvider)
     private val registrationLatch = CountDownLatch(1)
     private val registrationSuccess = AtomicBoolean(false)
     private var subscription: Cancellable? = null
@@ -95,10 +91,7 @@ class TestWsTunnelClient(
     }
 
     fun stop() {
-        localConnections.values.forEach {
-            try { it.closeAndAwait() } catch (_: Exception) {}
-        }
-        localConnections.clear()
+        wsLocalConnector.closeAll()
         subscription?.cancel()
         channel?.shutdownNow()
         channel = null
@@ -124,93 +117,39 @@ class TestWsTunnelClient(
         val path = wsOpen.headersMap["path"] ?: localWsPath
 
         thread {
-            try {
-                var c = connectorProvider()
-                    .baseUri(URI("http://localhost:$localWsPort"))
-                    .path(if (path == "/") localWsPath else path)
+            val result = wsLocalConnector.connect(
+                connectionId = connectionId,
+                path = if (path == "/") localWsPath else path,
+                headers = wsOpen.headersMap,
+                localHost = "localhost",
+                localPort = localWsPort,
+                outgoingQueue = outgoingQueue,
+            )
 
-                val subprotocols = wsOpen.headersMap["sec-websocket-protocol"]
-                if (subprotocols != null) {
-                    subprotocols.split(",").map { it.trim() }.forEach { c = c.addSubprotocol(it) }
+            outgoingQueue.add(clientMessage {
+                correlationId = connectionId
+                wsUpgrade = wsUpgradeResponseX {
+                    this.connectionId = connectionId
+                    accepted = result.accepted
+                    statusCode = if (result.accepted) 101 else result.statusCode
+                    subprotocol = result.subprotocol
                 }
-
-                c = c.onTextMessage { _, text ->
-                    outgoingQueue.add(clientMessage {
-                        correlationId = connectionId
-                        wsFrame = wsFrame {
-                            this.connectionId = connectionId
-                            data = ByteString.copyFromUtf8(text)
-                            isBinary = false
-                        }
-                    })
-                }
-
-                c = c.onBinaryMessage { _, buf ->
-                    outgoingQueue.add(clientMessage {
-                        correlationId = connectionId
-                        wsFrame = wsFrame {
-                            this.connectionId = connectionId
-                            data = ByteString.copyFrom(buf.bytes)
-                            isBinary = true
-                        }
-                    })
-                }
-
-                c = c.onClose { _, reason ->
-                    localConnections.remove(connectionId)
-                    outgoingQueue.add(clientMessage {
-                        correlationId = connectionId
-                        wsClose = wsCloseX {
-                            this.connectionId = connectionId
-                            code = reason.code
-                            this.reason = reason.message ?: ""
-                        }
-                    })
-                }
-
-                val conn = c.connectAndAwait()
-                localConnections[connectionId] = conn
-
-                outgoingQueue.add(clientMessage {
-                    correlationId = connectionId
-                    wsUpgrade = wsUpgradeResponseX {
-                        this.connectionId = connectionId
-                        accepted = true
-                        statusCode = 101
-                        subprotocol = conn.subprotocol() ?: ""
-                    }
-                })
-            } catch (e: Exception) {
-                log.warn("Local WS connect failed: {}", e.message)
-                outgoingQueue.add(clientMessage {
-                    correlationId = connectionId
-                    wsUpgrade = wsUpgradeResponseX {
-                        this.connectionId = connectionId
-                        accepted = false
-                        statusCode = 403
-                    }
-                })
-            }
+            })
         }
     }
 
     private fun handleWsFrame(msg: ServerMessage) {
         val frame = msg.wsFrame
-        val conn = localConnections[frame.connectionId] ?: return
-        if (frame.isPing) {
-            conn.sendPingAndAwait(io.vertx.core.buffer.Buffer.buffer(frame.data.toByteArray()))
-        } else if (frame.isBinary) {
-            conn.sendBinaryAndAwait(io.vertx.core.buffer.Buffer.buffer(frame.data.toByteArray()))
-        } else {
-            conn.sendTextAndAwait(frame.data.toStringUtf8())
-        }
+        wsLocalConnector.sendFrame(
+            frame.connectionId,
+            frame.data.toByteArray(),
+            frame.isBinary,
+            frame.isPing,
+        )
     }
 
     private fun handleWsClose(msg: ServerMessage) {
         val close = msg.wsClose
-        val conn = localConnections.remove(close.connectionId) ?: return
-        try {
-            conn.closeAndAwait(CloseReason(close.code, close.reason))
-        } catch (_: Exception) {}
+        wsLocalConnector.close(close.connectionId, close.code, close.reason)
     }
 }

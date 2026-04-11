@@ -15,11 +15,12 @@ jobs:
       - uses: actions/checkout@v6
         with:
           lfs: true
-      - name: Set up JDK 25
-        uses: actions/setup-java@v5
+      - name: Set up Liberica NIK
+        uses: graalvm/setup-graalvm@v1
         with:
           java-version: '25'
           distribution: 'liberica'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           cache: 'maven'
       - name: Run tests
         run: ./mvnw -B -e verify -Daether.dependencyCollector.impl=bf

@@ -2,6 +2,7 @@ package site.asm0dey.relay.server
 
 import io.quarkus.grpc.GrpcService
 import io.vertx.core.http.HttpServerRequest
+import io.smallrye.common.annotation.Blocking
 import jakarta.ws.rs.*
 import jakarta.ws.rs.core.Context
 import jakarta.ws.rs.core.Response
@@ -12,6 +13,7 @@ import site.asm0dey.relay.domain.serverMessage
 import java.util.*
 
 @Path("/{path:.*}")
+@Blocking
 class RelayResource(
     @param:GrpcService private val tunnelService: TunnelService,
 ) {

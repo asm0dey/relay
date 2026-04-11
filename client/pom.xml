@@ -70,7 +70,7 @@
         </dependency>
         <dependency>
             <groupId>com.github.ajalt.mordant</groupId>
-            <artifactId>mordant-jvm-ffm-jvm</artifactId>
+            <artifactId>mordant-jvm-graal-ffi-jvm</artifactId>
             <version>3.0.2</version>
         </dependency>
         <dependency>

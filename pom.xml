@@ -20,7 +20,7 @@
         <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
         <quarkus.platform.version>3.34.3</quarkus.platform.version>
         <skipITs>true</skipITs>
-        <surefire-plugin.version>3.5.5</surefire-plugin.version>
+        <surefire-plugin.version>3.6.0</surefire-plugin.version>
         <serialization.version>1.10.0</serialization.version>
         <grpc.kotlin.version>6f774052d1d6923f8af2e0023886d69949b695ee</grpc.kotlin.version>
         <grpc.version>1.79.0</grpc.version>
